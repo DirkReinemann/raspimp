@@ -23,6 +23,7 @@ const char *STFILE = "raspimp.css";
 GtkTreeModel *streamstore = NULL;
 GtkTreeView *streamtree = NULL;
 GtkLabel *statuslabel = NULL;
+GtkButton *stopbutton = NULL;
 
 GMainLoop *loop = NULL;
 GstElement *playbin = NULL;
@@ -67,6 +68,7 @@ void stop_stream()
         gst_object_unref(bus);
         bus = NULL;
     }
+    gtk_widget_set_sensitive(GTK_WIDGET(stopbutton), FALSE);
 }
 
 gboolean on_bus_message(GstBus *bus, GstMessage *message, gpointer data)
@@ -132,6 +134,7 @@ void start_stream(const gchar *url)
     gst_element_set_state(playbin, GST_STATE_PLAYING);
     loop = g_main_loop_new(NULL, FALSE);
     set_status("", FALSE);
+    gtk_widget_set_sensitive(GTK_WIDGET(stopbutton), TRUE);
     g_main_loop_run(loop);
 }
 
@@ -207,6 +210,7 @@ void initialize_gtk()
     streamtree = GTK_TREE_VIEW(gtk_builder_get_object(builder, "streamtree"));
     streamstore = GTK_TREE_MODEL(gtk_builder_get_object(builder, "streamstore"));
     statuslabel = GTK_LABEL(gtk_builder_get_object(builder, "statuslabel"));
+    stopbutton = GTK_BUTTON(gtk_builder_get_object(builder, "stopbutton"));
 
     g_object_unref(builder);
     sqlite3_open(DBFILE, &database);
