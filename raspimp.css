@@ -2,10 +2,19 @@
     font: 26px "Monospace";
 }
 
-
-color: #FFFFFF;
-background-color: #333333;
+window, box, treeview, notebook box {
+    color: #FFFFFF;
+    background-color: #333333;
+}
 
 treeview.view:selected {
     background-color: #4A90D9;
+}
+
+notebook {
+    border-color: #333333;
+}
+
+.statuslabel {
+    font-size: 20px;
 }

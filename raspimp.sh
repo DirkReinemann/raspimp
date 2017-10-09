@@ -10,31 +10,29 @@ usage()
     printf "  %-20s %s\n" "-d" "deploy application"
     printf "  %-20s %s\n" "-s" "create sqlite database"
     printf "  %-20s %s\n" "-b" "deploy sqlite database"
+    printf "  %-20s %s\n" "-v" "start application on virtual screen"
     exit 1
 }
 
 deploy()
 {
-    if [ -f raspimp.zip ]; then
-        rm raspimp.zip
-    fi
-
-    zip -r9 raspimp.zip raspimp.c Makefile
+    zip -r9 raspimp.zip raspimp.c Makefile raspimp.db raspimp.css raspimp.glade
     scp raspimp.zip raspberrypi:/tmp
     rm raspimp.zip
 
-    scp raspimp.db raspberrypi:/home/alarm
-    scp raspimp.css raspberrypi:/home/alarm
-    scp raspimp.glade raspberrypi:/home/alarm
-
     ssh -t raspberrypi '
         cd /tmp
+        unzip raspimp.zip
+        rm raspimp.zip
+        mkdir -p /home/alarm/.config/raspimp
+        cp raspimp.glade /home/alarm/.config/raspimp/raspimp.glade
+        cp raspimp.db /home/alarm/.config/raspimp/raspimp.db
+        cp raspimp.css /home/alarm/.config/raspimp/raspimp.css
         sudo chown root:root raspimp.zip
-        sudo unzip raspimp.zip
-        sudo rm raspimp.zip
-        sudo make
-        killall raspimp && sudo cp raspimp.o /usr/bin/raspimp
-        sudo rm Makefile raspimp.c raspimp.o
+        make
+        sudo -v
+        killall raspimp && sudo cp raspimp /usr/bin/raspimp
+        rm Makefile raspimp raspimp.c Makefile raspimp.db raspimp.css raspimp.glade
     '
 }
 
@@ -49,15 +47,30 @@ sqlite()
 
 database()
 {
-    scp raspimp.db raspberrypi:/home/alarm
+    scp raspimp.db raspberrypi:/home/alarm/.config/raspimp/
     ssh raspberrypi 'killall raspimp'
+}
+
+virtualscreen()
+{
+    local savedisplay="$DISPLAY"
+
+    make
+    nohup Xephyr -br -ac -noreset -softCursor -screen 800x480 :11 > xephyr.out 2>&1 &
+    export DISPLAY=':11'
+    nohup ./raspimp > raspimp.out 2>&1 &
+    echo "Press Enter to close ..."
+    read
+    killall Xephyr
+    killall raspimp
+    export DISPLAY="$savedisplay"
 }
 
 if [ $# == 0 ]; then
     usage
 fi
 
-while getopts "dsb" opt; do
+while getopts "dsbv" opt; do
     case $opt in
         d)
             deploy
@@ -67,6 +80,9 @@ while getopts "dsb" opt; do
         ;;
         b)
             database
+        ;;
+        v)
+            virtualscreen
         ;;
         \?)
             usage

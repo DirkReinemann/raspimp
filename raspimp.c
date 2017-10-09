@@ -3,22 +3,25 @@
 #include <sqlite3.h>
 #include <string.h>
 #include <stdlib.h>
+#include <unistd.h>
 
 enum {
     COLUMN_NAME,
     COLUMN_COUNT
 };
 
+#ifdef __arm__
+const char *UIFILE = "/home/alarm/.config/raspimp/raspimp.glade";
+const char *DBFILE = "/home/alarm/.config/raspimp/raspimp.db";
+const char *STFILE = "/home/alarm/.config/raspimp/raspimp.css";
+#else
 const char *UIFILE = "raspimp.glade";
 const char *DBFILE = "raspimp.db";
 const char *STFILE = "raspimp.css";
-//const char *UIFILE = "/home/alarm/raspimp.glade";
-//const char *DBFILE = "/home/alarm/raspimp.db";
-//const char *STFILE = "/home/alarm/raspimp.css";
+#endif
 
 GtkTreeModel *streamstore = NULL;
 GtkTreeView *streamtree = NULL;
-GtkEntry *filterentry = NULL;
 GtkLabel *statuslabel = NULL;
 
 GMainLoop *loop = NULL;
@@ -71,8 +74,6 @@ gboolean on_bus_message(GstBus *bus, GstMessage *message, gpointer data)
     UNUSED(bus);
     UNUSED(data);
 
-    //g_print("Got %s message\n", GST_MESSAGE_TYPE_NAME(message));
-
     switch (GST_MESSAGE_TYPE(message)) {
     case GST_MESSAGE_ERROR: {
         GError *error;
@@ -106,24 +107,14 @@ gboolean on_bus_message(GstBus *bus, GstMessage *message, gpointer data)
     return TRUE;
 }
 
-void set_streams(const gchar *filter)
+void set_streams()
 {
     int result;
     sqlite3_stmt *statement;
     GtkTreeIter iter;
 
-    if (strlen(filter) == 0) {
-        sqlite3_prepare_v2(database, "SELECT name FROM stream", -1, &statement, NULL);
-    } else {
-        gchar *format = "SELECT name FROM stream WHERE name LIKE '%%%s%%'";
-        size_t size = strlen(format) + strlen(filter);
-        gchar query[size];
-        snprintf(query, size, format, filter);
-        sqlite3_prepare_v2(database, query, -1, &statement, NULL);
-        sqlite3_bind_text(statement, 1, filter, -1, SQLITE_STATIC);
-    }
+    sqlite3_prepare_v2(database, "SELECT name FROM stream", -1, &statement, NULL);
     gtk_list_store_clear(GTK_LIST_STORE(streamstore));
-
     while ((result = sqlite3_step(statement)) == SQLITE_ROW) {
         gtk_list_store_append(GTK_LIST_STORE(streamstore), &iter);
         gtk_list_store_set(GTK_LIST_STORE(streamstore), &iter, COLUMN_NAME, sqlite3_column_text(statement, 0), -1);
@@ -167,14 +158,10 @@ void on_streamtree_cursor_changed()
     }
 }
 
-void on_filterentry_changed()
-{
-    set_streams(gtk_entry_get_text(filterentry));
-}
-
 void on_stopbutton_clicked()
 {
     stop_stream();
+    set_status("", FALSE);
 }
 
 void on_window_destroy()
@@ -182,6 +169,18 @@ void on_window_destroy()
     stop_stream();
     sqlite3_close(database);
     gtk_main_quit();
+}
+
+void is_file(const char *FILENAME)
+{
+    if (access(FILENAME, R_OK) != 0) {
+        GtkWidget *dialog = gtk_message_dialog_new(NULL, GTK_DIALOG_DESTROY_WITH_PARENT,
+                                                   GTK_MESSAGE_ERROR, GTK_BUTTONS_CLOSE,
+                                                   "Error while opening the file '%s'.", FILENAME);
+        gtk_dialog_run(GTK_DIALOG(dialog));
+        gtk_widget_destroy(dialog);
+        exit(1);
+    }
 }
 
 void initialize_gtk()
@@ -192,12 +191,14 @@ void initialize_gtk()
 
     gtk_init(NULL, NULL);
 
+    is_file(STFILE);
+    is_file(DBFILE);
+    is_file(UIFILE);
+
     builder = gtk_builder_new();
     gtk_builder_add_from_file(builder, UIFILE, NULL);
-
     window = GTK_WIDGET(gtk_builder_get_object(builder, "window"));
     gtk_builder_connect_signals(builder, NULL);
-
     provider = gtk_css_provider_get_default();
     gtk_css_provider_load_from_path(provider, STFILE, NULL);
     gtk_style_context_add_provider_for_screen(gdk_screen_get_default(), GTK_STYLE_PROVIDER(provider),
@@ -205,22 +206,11 @@ void initialize_gtk()
 
     streamtree = GTK_TREE_VIEW(gtk_builder_get_object(builder, "streamtree"));
     streamstore = GTK_TREE_MODEL(gtk_builder_get_object(builder, "streamstore"));
-    filterentry = GTK_ENTRY(gtk_builder_get_object(builder, "filterentry"));
     statuslabel = GTK_LABEL(gtk_builder_get_object(builder, "statuslabel"));
 
     g_object_unref(builder);
-
-    int result = sqlite3_open(DBFILE, &database);
-    if (result != SQLITE_OK) {
-        GtkWidget *dialog = gtk_message_dialog_new(GTK_WINDOW(window), GTK_DIALOG_DESTROY_WITH_PARENT,
-                                                   GTK_MESSAGE_ERROR, GTK_BUTTONS_CLOSE,
-                                                   "Error while opening the database file '%s'.", DBFILE);
-        gtk_dialog_run(GTK_DIALOG(dialog));
-        gtk_widget_destroy(dialog);
-        exit(1);
-    }
-
-    set_streams("");
+    sqlite3_open(DBFILE, &database);
+    set_streams();
     gtk_widget_show(window);
     gtk_main();
 }

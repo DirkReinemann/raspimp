@@ -1,3 +1,4 @@
-tags
-.clang_complete
 *.o
+*.log
+*.out
+raspimp
