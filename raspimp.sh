@@ -7,10 +7,10 @@ usage()
     echo "Usage: $0 [Options]"
     echo
     echo "Options:"
-    printf "  %-20s %s\n" "-d" "deploy application"
-    printf "  %-20s %s\n" "-s" "create sqlite database"
-    printf "  %-20s %s\n" "-b" "deploy sqlite database"
-    printf "  %-20s %s\n" "-v" "start application on virtual screen"
+    printf "  %-20s %s\n" "-d" "deploy application to raspberry pi"
+    printf "  %-20s %s\n" "-s" "create raspimp.db from raspimp.sql"
+    printf "  %-20s %s\n" "-b" "deploy raspimp.db to raspberry pi"
+    printf "  %-20s %s\n" "-v" "start application on virtual display"
     exit 1
 }
 
@@ -51,7 +51,7 @@ database()
     ssh raspberrypi 'killall raspimp'
 }
 
-virtualscreen()
+virtualdisplay()
 {
     local savedisplay="$DISPLAY"
 
@@ -82,7 +82,7 @@ while getopts "dsbv" opt; do
             database
         ;;
         v)
-            virtualscreen
+            virtualdisplay
         ;;
         \?)
             usage

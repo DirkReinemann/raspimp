@@ -9,3 +9,4 @@ Raspberry Pi music player for touchscreen
 | ./raspimp.sh -d | deploy application to raspberry pi |
 | ./raspimp.sh -s | create raspimp.db from raspimp.sql |
 | ./raspimp.sh -b | deploy raspimp.db to raspberry pi |
+| ./raspimp.sh -v | start application on virtual display |
