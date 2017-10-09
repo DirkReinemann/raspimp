@@ -1,0 +1,11 @@
+* {
+    font: 26px "Monospace";
+}
+
+
+color: #FFFFFF;
+background-color: #333333;
+
+treeview.view:selected {
+    background-color: #4A90D9;
+}
