@@ -29,33 +29,40 @@
                 <property name="can_focus">False</property>
                 <property name="orientation">vertical</property>
                 <child>
-                  <object class="GtkTreeView" id="streamtree">
+                  <object class="GtkScrolledWindow" id="streamscroll">
                     <property name="visible">True</property>
                     <property name="can_focus">True</property>
-                    <property name="margin_left">10</property>
-                    <property name="margin_right">10</property>
-                    <property name="margin_top">10</property>
-                    <property name="model">streamstore</property>
-                    <property name="headers_visible">False</property>
-                    <property name="enable_search">False</property>
-                    <signal name="cursor-changed" handler="on_streamtree_cursor_changed" swapped="no"/>
-                    <child internal-child="selection">
-                      <object class="GtkTreeSelection" id="selectionStream"/>
-                    </child>
+                    <property name="shadow_type">in</property>
                     <child>
-                      <object class="GtkTreeViewColumn" id="columnNameStream">
-                        <property name="title" translatable="yes">NAME</property>
+                      <object class="GtkTreeView" id="streamtree">
+                        <property name="visible">True</property>
+                        <property name="can_focus">True</property>
+                        <property name="margin_left">10</property>
+                        <property name="margin_right">10</property>
+                        <property name="margin_top">10</property>
+                        <property name="model">streamstore</property>
+                        <property name="headers_visible">False</property>
+                        <property name="enable_search">False</property>
+                        <signal name="cursor-changed" handler="on_streamtree_cursor_changed" swapped="no"/>
+                        <child internal-child="selection">
+                          <object class="GtkTreeSelection" id="selectionStream"/>
+                        </child>
                         <child>
-                          <object class="GtkCellRendererText" id="rendererNameStream"/>
-                          <attributes>
-                            <attribute name="text">0</attribute>
-                          </attributes>
+                          <object class="GtkTreeViewColumn" id="columnNameStream">
+                            <property name="title" translatable="yes">NAME</property>
+                            <child>
+                              <object class="GtkCellRendererText" id="rendererNameStream"/>
+                              <attributes>
+                                <attribute name="text">0</attribute>
+                              </attributes>
+                            </child>
+                          </object>
                         </child>
                       </object>
                     </child>
                   </object>
                   <packing>
-                    <property name="expand">False</property>
+                    <property name="expand">True</property>
                     <property name="fill">True</property>
                     <property name="position">0</property>
                   </packing>

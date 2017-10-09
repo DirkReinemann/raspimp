@@ -15,6 +15,10 @@ notebook {
     border-color: #333333;
 }
 
+scrollbar slider {
+    min-width: 25px;
+}
+
 .statuslabel {
     font-size: 20px;
 }
