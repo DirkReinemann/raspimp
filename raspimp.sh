@@ -41,7 +41,7 @@ sqlite()
     if [ -f raspimp.db ]; then
         rm raspimp.db
     fi
-    sqlite3 raspimp.db < create.sql
+    sqlite3 raspimp.db < raspimp.sql
 
 }
 
