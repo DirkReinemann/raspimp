@@ -16,6 +16,6 @@ INSERT INTO stream(id, name, url) VALUES (9, "STAR FM HOT TOP", "http://85.25.20
 INSERT INTO stream(id, name, url) VALUES (10, "94.3 RS2 BERLIN", "http://stream.rs2.de/rs2/mp3-128/");
 INSERT INTO stream(id, name, url) VALUES (11, "94.3 RS2 80ER", "http://stream.rs2.de/rs2-80er/mp3-128/internetradio/");
 INSERT INTO stream(id, name, url) VALUES (12, "94.3 RS2 90ER", "http://stream.rs2.de/rs2-90er/mp3-128/internetradio/");
-INSERT INTO stream(id, name, url) VALUES (13, "94.3 RS2 90ER", "http://stream.rs2.de/rs2-relax/mp3-128/internetradio/");
+INSERT INTO stream(id, name, url) VALUES (13, "94.3 RS2 RELAX", "http://stream.rs2.de/rs2-relax/mp3-128/internetradio/");
 INSERT INTO stream(id, name, url) VALUES (14, "NOTEBOOK", "http://192.168.0.90:9001/stream.mp3");
 INSERT INTO stream(id, name, url) VALUES (15, "ODROID", "http://192.168.0.10:9001/stream.mp3");

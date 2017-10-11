@@ -4,6 +4,9 @@
 #include <string.h>
 #include <stdlib.h>
 #include <unistd.h>
+#include <regex.h>
+
+#include "keyboard.h"
 
 enum {
     COLUMN_NAME,
@@ -11,23 +14,28 @@ enum {
 };
 
 #ifdef __arm__
-const char *UIFILE = "/home/alarm/.config/raspimp/raspimp.glade";
-const char *DBFILE = "/home/alarm/.config/raspimp/raspimp.db";
-const char *STFILE = "/home/alarm/.config/raspimp/raspimp.css";
+const char *RASPIMP_GLADE_FILE = "/home/alarm/.config/raspimp/raspimp.glade";
+const char *RASPIMP_SQLITE_FILE = "/home/alarm/.config/raspimp/raspimp.db";
+const char *RASPIMP_CSS_FILE = "/home/alarm/.config/raspimp/raspimp.css";
 #else
-const char *UIFILE = "raspimp.glade";
-const char *DBFILE = "raspimp.db";
-const char *STFILE = "raspimp.css";
+const char *RASPIMP_GLADE_FILE = "raspimp.glade";
+const char *RASPIMP_SQLITE_FILE = "raspimp.db";
+const char *RASPIMP_CSS_FILE = "raspimp.css";
 #endif
 
 GtkTreeModel *streamstore = NULL;
 GtkTreeView *streamtree = NULL;
 GtkLabel *statuslabel = NULL;
 GtkButton *stopbutton = NULL;
+GtkEntry *filterentry = NULL;
+GtkLabel *signallabel = NULL;
+GtkWidget *keyboard = NULL;
 
 GMainLoop *loop = NULL;
 GstElement *playbin = NULL;
 GstBus *bus = NULL;
+
+gint signaltimeout = 0;
 
 sqlite3 *database = NULL;
 
@@ -109,13 +117,22 @@ gboolean on_bus_message(GstBus *bus, GstMessage *message, gpointer data)
     return TRUE;
 }
 
-void set_streams()
+void set_streams(const gchar *filter)
 {
     int result;
     sqlite3_stmt *statement;
     GtkTreeIter iter;
 
-    sqlite3_prepare_v2(database, "SELECT name FROM stream", -1, &statement, NULL);
+    if (filter == NULL || strlen(filter) == 0) {
+        sqlite3_prepare_v2(database, "SELECT name FROM stream ORDER BY NAME", -1, &statement, NULL);
+    } else {
+        char *format = "SELECT name FROM stream WHERE name LIKE '%%%s%%' ORDER BY NAME";
+        size_t size = strlen(format) + strlen(filter);
+        char query[size];
+        snprintf(query, size, format, filter);
+        sqlite3_prepare_v2(database, query, -1, &statement, NULL);
+    }
+
     gtk_list_store_clear(GTK_LIST_STORE(streamstore));
     while ((result = sqlite3_step(statement)) == SQLITE_ROW) {
         gtk_list_store_append(GTK_LIST_STORE(streamstore), &iter);
@@ -148,7 +165,7 @@ void on_streamtree_cursor_changed()
     GValue value = G_VALUE_INIT;
 
     selection = gtk_tree_view_get_selection(streamtree);
-    if (gtk_tree_selection_get_selected(selection, &streamstore, &iter)) {
+    if (gtk_tree_selection_get_selected(selection, &streamstore, &iter) == TRUE && keyboard == NULL) {
         gtk_tree_model_get_value(streamstore, &iter, COLUMN_NAME, &value);
         name = (gchar *)g_value_get_string(&value);
         sqlite3_prepare_v2(database, "SELECT url FROM stream WHERE name=?", -1, &statement, NULL);
@@ -167,11 +184,72 @@ void on_stopbutton_clicked()
     set_status("", FALSE);
 }
 
+void on_keyboard_destroy()
+{
+    keyboard = NULL;
+}
+
+void on_filterentry_button_press_event()
+{
+    keyboard = keyboard_show(filterentry);
+    g_signal_connect(G_OBJECT(keyboard), "destroy", G_CALLBACK(on_keyboard_destroy), NULL);
+}
+
+void on_filterentry_insert_text(GtkEditable *editable, gchar *text)
+{
+    UNUSED(editable);
+
+    set_streams(text);
+}
+
 void on_window_destroy()
 {
+    g_source_remove(signaltimeout);
     stop_stream();
     sqlite3_close(database);
     gtk_main_quit();
+}
+
+gboolean set_wifi_signal_strength()
+{
+    FILE *file = popen("iwconfig wlp3s0", "r");
+
+    if (file != NULL) {
+        char *line = NULL;
+        size_t length = 0;
+        ssize_t read;
+        const char *rquality = "Quality=[0-9]*/[0-9]*";
+        regex_t regex;
+        int found = 0;
+        regcomp(&regex, rquality, 0);
+        while ((read = getline(&line, &length, file)) != -1 && found == 0) {
+            regmatch_t matches[1];
+            if (!regexec(&regex, line, 1, matches, 0)) {
+                int size = matches[0].rm_eo - matches[0].rm_so + 1;
+                char cquality[size];
+                strncpy(cquality, line + matches[0].rm_so + 8, size - 8);
+
+                int now = 0;
+                int max = 0;
+
+                char *token = strtok(cquality, "/");
+                if (token != NULL)
+                    now = atoi(token);
+                token = strtok(NULL, "/");
+                if (token != NULL)
+                    max = atoi(token);
+
+                double strength = (double)now / max * 100.0;
+                gchar sstrength[5];
+                g_snprintf(sstrength, 5, "%.0f%%", strength);
+                gtk_label_set_text(signallabel, sstrength);
+                found = 1;
+            }
+        }
+        free(line);
+        pclose(file);
+    }
+    return TRUE;
 }
 
 void is_file(const char *FILENAME)
@@ -194,16 +272,16 @@ void initialize_gtk()
 
     gtk_init(NULL, NULL);
 
-    is_file(STFILE);
-    is_file(DBFILE);
-    is_file(UIFILE);
+    is_file(RASPIMP_CSS_FILE);
+    is_file(RASPIMP_SQLITE_FILE);
+    is_file(RASPIMP_GLADE_FILE);
 
     builder = gtk_builder_new();
-    gtk_builder_add_from_file(builder, UIFILE, NULL);
+    gtk_builder_add_from_file(builder, RASPIMP_GLADE_FILE, NULL);
     window = GTK_WIDGET(gtk_builder_get_object(builder, "window"));
     gtk_builder_connect_signals(builder, NULL);
     provider = gtk_css_provider_get_default();
-    gtk_css_provider_load_from_path(provider, STFILE, NULL);
+    gtk_css_provider_load_from_path(provider, RASPIMP_CSS_FILE, NULL);
     gtk_style_context_add_provider_for_screen(gdk_screen_get_default(), GTK_STYLE_PROVIDER(provider),
                                               GTK_STYLE_PROVIDER_PRIORITY_USER);
 
@@ -211,10 +289,13 @@ void initialize_gtk()
     streamstore = GTK_TREE_MODEL(gtk_builder_get_object(builder, "streamstore"));
     statuslabel = GTK_LABEL(gtk_builder_get_object(builder, "statuslabel"));
     stopbutton = GTK_BUTTON(gtk_builder_get_object(builder, "stopbutton"));
+    filterentry = GTK_ENTRY(gtk_builder_get_object(builder, "filterentry"));
+    signallabel = GTK_LABEL(gtk_builder_get_object(builder, "signallabel"));
 
     g_object_unref(builder);
-    sqlite3_open(DBFILE, &database);
-    set_streams();
+    sqlite3_open(RASPIMP_SQLITE_FILE, &database);
+    set_streams(NULL);
+    signaltimeout = g_timeout_add(5000, set_wifi_signal_strength, NULL);
     gtk_widget_show(window);
     gtk_main();
 }
