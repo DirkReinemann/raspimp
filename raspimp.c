@@ -36,6 +36,7 @@ GstElement *playbin = NULL;
 GstBus *bus = NULL;
 
 gint signaltimeout = 0;
+gchar *playing = NULL;
 
 sqlite3 *database = NULL;
 
@@ -76,6 +77,7 @@ void stop_stream()
         gst_object_unref(bus);
         bus = NULL;
     }
+    playing = NULL;
     gtk_widget_set_sensitive(GTK_WIDGET(stopbutton), FALSE);
 }
 
@@ -141,6 +143,20 @@ void set_streams(const gchar *filter)
     sqlite3_finalize(statement);
 }
 
+gchar *get_selection_name()
+{
+    GtkTreeIter iter;
+    GValue value = G_VALUE_INIT;
+    gchar *name = NULL;
+    GtkTreeSelection *selection = gtk_tree_view_get_selection(streamtree);
+
+    if (gtk_tree_selection_get_selected(selection, &streamstore, &iter)) {
+        gtk_tree_model_get_value(streamstore, &iter, COLUMN_NAME, &value);
+        name = (gchar *)g_value_get_string(&value);
+    }
+    return name;
+}
+
 void start_stream(const gchar *url)
 {
     gst_init(NULL, NULL);
@@ -152,26 +168,20 @@ void start_stream(const gchar *url)
     loop = g_main_loop_new(NULL, FALSE);
     set_status("", FALSE);
     gtk_widget_set_sensitive(GTK_WIDGET(stopbutton), TRUE);
+    playing = get_selection_name();
     g_main_loop_run(loop);
 }
 
 void on_streamtree_cursor_changed()
 {
-    GtkTreeIter iter;
-    GtkTreeSelection *selection;
-    sqlite3_stmt *statement;
-    gchar *name;
-    gchar *url;
-    GValue value = G_VALUE_INIT;
+    gchar *name = get_selection_name();
 
-    selection = gtk_tree_view_get_selection(streamtree);
-    if (gtk_tree_selection_get_selected(selection, &streamstore, &iter) == TRUE && keyboard == NULL) {
-        gtk_tree_model_get_value(streamstore, &iter, COLUMN_NAME, &value);
-        name = (gchar *)g_value_get_string(&value);
+    if (name != NULL && keyboard == NULL) {
+        sqlite3_stmt *statement;
         sqlite3_prepare_v2(database, "SELECT url FROM stream WHERE name=?", -1, &statement, NULL);
         sqlite3_bind_text(statement, 1, name, strlen(name), SQLITE_STATIC);
         sqlite3_step(statement);
-        url = (gchar *)sqlite3_column_text(statement, 0);
+        gchar *url = (gchar *)sqlite3_column_text(statement, 0);
         stop_stream();
         start_stream(url);
         sqlite3_finalize(statement);
@@ -182,10 +192,27 @@ void on_stopbutton_clicked()
 {
     stop_stream();
     set_status("", FALSE);
+    GtkTreeSelection *selection = gtk_tree_view_get_selection(streamtree);
+    gtk_tree_selection_unselect_all(selection);
 }
 
 void on_keyboard_destroy()
 {
+    GtkTreeIter iter;
+    gboolean valid = gtk_tree_model_get_iter_first(streamstore, &iter);
+    gboolean found = FALSE;
+
+    while (valid && !found) {
+        GValue value = G_VALUE_INIT;
+        gtk_tree_model_get_value(streamstore, &iter, COLUMN_NAME, &value);
+        gchar *name = (gchar *)g_value_get_string(&value);
+        if (g_strcmp0(name, playing) == 0) {
+            GtkTreeSelection *selection = gtk_tree_view_get_selection(streamtree);
+            gtk_tree_selection_select_iter(selection, &iter);
+            found = TRUE;
+        }
+        valid = gtk_tree_model_iter_next(streamstore, &iter);
+    }
     keyboard = NULL;
 }
 
@@ -266,21 +293,17 @@ void is_file(const char *FILENAME)
 
 void initialize_gtk()
 {
-    GtkBuilder *builder;
-    GtkCssProvider *provider;
-    GtkWidget *window;
-
     gtk_init(NULL, NULL);
 
     is_file(RASPIMP_CSS_FILE);
     is_file(RASPIMP_SQLITE_FILE);
     is_file(RASPIMP_GLADE_FILE);
 
-    builder = gtk_builder_new();
+    GtkBuilder *builder = gtk_builder_new();
     gtk_builder_add_from_file(builder, RASPIMP_GLADE_FILE, NULL);
-    window = GTK_WIDGET(gtk_builder_get_object(builder, "window"));
+    GtkWidget *window = GTK_WIDGET(gtk_builder_get_object(builder, "window"));
     gtk_builder_connect_signals(builder, NULL);
-    provider = gtk_css_provider_get_default();
+    GtkCssProvider *provider = gtk_css_provider_get_default();
     gtk_css_provider_load_from_path(provider, RASPIMP_CSS_FILE, NULL);
     gtk_style_context_add_provider_for_screen(gdk_screen_get_default(), GTK_STYLE_PROVIDER(provider),
                                               GTK_STYLE_PROVIDER_PRIORITY_USER);

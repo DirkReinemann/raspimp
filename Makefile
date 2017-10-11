@@ -9,5 +9,7 @@ compile:
 	$(CC) $(CFLAGS) $(SOURCES) -o $(BIN)
 
 clean:
-	rm *.o
-	rm $(BIN)
+	rm -f *.o $(BIN) *~ *.out
+
+run: compile
+	./raspimp
