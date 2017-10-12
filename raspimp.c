@@ -17,26 +17,34 @@ enum {
 const char *RASPIMP_GLADE_FILE = "/home/alarm/.config/raspimp/raspimp.glade";
 const char *RASPIMP_SQLITE_FILE = "/home/alarm/.config/raspimp/raspimp.db";
 const char *RASPIMP_CSS_FILE = "/home/alarm/.config/raspimp/raspimp.css";
+const char *RASPIMP_MUSIC_DIR = "/home/alarm/music";
 #else
 const char *RASPIMP_GLADE_FILE = "raspimp.glade";
 const char *RASPIMP_SQLITE_FILE = "raspimp.db";
 const char *RASPIMP_CSS_FILE = "raspimp.css";
+const char *RASPIMP_MUSIC_DIR = "/home/dirk/Music/Bassdrive";
 #endif
 
+GtkLabel *statuslabel = NULL;
+GtkLabel *signallabel = NULL;
+GtkButton *stopbutton = NULL;
+GtkWidget *keyboard = NULL;
 GtkTreeModel *streamstore = NULL;
 GtkTreeView *streamtree = NULL;
-GtkLabel *statuslabel = NULL;
-GtkButton *stopbutton = NULL;
-GtkEntry *filterentry = NULL;
-GtkLabel *signallabel = NULL;
-GtkWidget *keyboard = NULL;
+GtkEntry *streamfilterentry = NULL;
+GtkTreeModel *musicstore = NULL;
+GtkTreeView *musictree = NULL;
+GtkEntry *musicfilterentry = NULL;
 
 GMainLoop *loop = NULL;
 GstElement *playbin = NULL;
 GstBus *bus = NULL;
 
+GtkTreeView *playingtree = NULL;
+GtkTreeModel *playingmodel = NULL;
+gchar *playingname = NULL;
+
 gint signaltimeout = 0;
-gchar *playing = NULL;
 
 sqlite3 *database = NULL;
 
@@ -77,7 +85,9 @@ void stop_stream()
         gst_object_unref(bus);
         bus = NULL;
     }
-    playing = NULL;
+    playingtree = NULL;
+    playingname = NULL;
+    playingmodel = NULL;
     gtk_widget_set_sensitive(GTK_WIDGET(stopbutton), FALSE);
 }
 
@@ -143,21 +153,45 @@ void set_streams(const gchar *filter)
     sqlite3_finalize(statement);
 }
 
-gchar *get_selection_name()
+void set_music(const gchar *filter)
+{
+    int result;
+    sqlite3_stmt *statement;
+    GtkTreeIter iter;
+
+    if (filter == NULL || strlen(filter) == 0) {
+        sqlite3_prepare_v2(database, "SELECT name FROM music ORDER BY NAME", -1, &statement, NULL);
+    } else {
+        char *format = "SELECT name FROM music WHERE name LIKE '%%%s%%' ORDER BY NAME";
+        size_t size = strlen(format) + strlen(filter);
+        char query[size];
+        snprintf(query, size, format, filter);
+        sqlite3_prepare_v2(database, query, -1, &statement, NULL);
+    }
+
+    gtk_list_store_clear(GTK_LIST_STORE(musicstore));
+    while ((result = sqlite3_step(statement)) == SQLITE_ROW) {
+        gtk_list_store_append(GTK_LIST_STORE(musicstore), &iter);
+        gtk_list_store_set(GTK_LIST_STORE(musicstore), &iter, COLUMN_NAME, sqlite3_column_text(statement, 0), -1);
+    }
+    sqlite3_finalize(statement);
+}
+
+gchar *get_selection_name(GtkTreeView *treeview, GtkTreeModel *treemodel)
 {
     GtkTreeIter iter;
     GValue value = G_VALUE_INIT;
     gchar *name = NULL;
-    GtkTreeSelection *selection = gtk_tree_view_get_selection(streamtree);
+    GtkTreeSelection *selection = gtk_tree_view_get_selection(treeview);
 
-    if (gtk_tree_selection_get_selected(selection, &streamstore, &iter)) {
-        gtk_tree_model_get_value(streamstore, &iter, COLUMN_NAME, &value);
+    if (gtk_tree_selection_get_selected(selection, &treemodel, &iter)) {
+        gtk_tree_model_get_value(treemodel, &iter, COLUMN_NAME, &value);
         name = (gchar *)g_value_get_string(&value);
     }
     return name;
 }
 
-void start_stream(const gchar *url)
+void start_stream(const gchar *url, GtkTreeView *treeview, GtkTreeModel *treemodel)
 {
     gst_init(NULL, NULL);
     playbin = gst_element_factory_make("playbin", "playbin");
@@ -168,13 +202,15 @@ void start_stream(const gchar *url)
     loop = g_main_loop_new(NULL, FALSE);
     set_status("", FALSE);
     gtk_widget_set_sensitive(GTK_WIDGET(stopbutton), TRUE);
-    playing = get_selection_name();
+    playingname = get_selection_name(treeview, treemodel);
+    playingtree = treeview;
+    playingmodel = treemodel;
     g_main_loop_run(loop);
 }
 
-void on_streamtree_cursor_changed()
+void on_streamtree_row_activated()
 {
-    gchar *name = get_selection_name();
+    gchar *name = get_selection_name(streamtree, streamstore);
 
     if (name != NULL && keyboard == NULL) {
         sqlite3_stmt *statement;
@@ -183,50 +219,84 @@ void on_streamtree_cursor_changed()
         sqlite3_step(statement);
         gchar *url = (gchar *)sqlite3_column_text(statement, 0);
         stop_stream();
-        start_stream(url);
+        start_stream(url, streamtree, streamstore);
+        sqlite3_finalize(statement);
+    }
+}
+
+void on_musictree_row_activated()
+{
+    gchar *name = get_selection_name(musictree, musicstore);
+
+    if (name != NULL && keyboard == NULL) {
+        sqlite3_stmt *statement;
+        sqlite3_prepare_v2(database, "SELECT url FROM music WHERE name=?", -1, &statement, NULL);
+        sqlite3_bind_text(statement, 1, name, strlen(name), SQLITE_STATIC);
+        sqlite3_step(statement);
+        gchar *url = (gchar *)sqlite3_column_text(statement, 0);
+        stop_stream();
+        start_stream(url, musictree, musicstore);
         sqlite3_finalize(statement);
     }
 }
 
 void on_stopbutton_clicked()
 {
-    stop_stream();
+    if (playingtree != NULL) {
+        GtkTreeSelection *selection = gtk_tree_view_get_selection(playingtree);
+        gtk_tree_selection_unselect_all(selection);
+    }
     set_status("", FALSE);
-    GtkTreeSelection *selection = gtk_tree_view_get_selection(streamtree);
-    gtk_tree_selection_unselect_all(selection);
+    stop_stream();
 }
 
 void on_keyboard_destroy()
 {
-    GtkTreeIter iter;
-    gboolean valid = gtk_tree_model_get_iter_first(streamstore, &iter);
-    gboolean found = FALSE;
+    if (playingtree != NULL && playingmodel != NULL && playingname != NULL) {
+        GtkTreeIter iter;
+        gboolean valid = gtk_tree_model_get_iter_first(playingmodel, &iter);
+        gboolean found = FALSE;
 
-    while (valid && !found) {
-        GValue value = G_VALUE_INIT;
-        gtk_tree_model_get_value(streamstore, &iter, COLUMN_NAME, &value);
-        gchar *name = (gchar *)g_value_get_string(&value);
-        if (g_strcmp0(name, playing) == 0) {
-            GtkTreeSelection *selection = gtk_tree_view_get_selection(streamtree);
-            gtk_tree_selection_select_iter(selection, &iter);
-            found = TRUE;
+        GtkTreeSelection *selection = gtk_tree_view_get_selection(playingtree);
+        gtk_tree_selection_unselect_all(selection);
+        while (valid && !found) {
+            GValue value = G_VALUE_INIT;
+            gtk_tree_model_get_value(playingmodel, &iter, COLUMN_NAME, &value);
+            gchar *name = (gchar *)g_value_get_string(&value);
+            if (g_strcmp0(name, playingname) == 0) {
+                gtk_tree_selection_select_iter(selection, &iter);
+                found = TRUE;
+            }
+            valid = gtk_tree_model_iter_next(playingmodel, &iter);
         }
-        valid = gtk_tree_model_iter_next(streamstore, &iter);
     }
     keyboard = NULL;
 }
 
-void on_filterentry_button_press_event()
+void on_streamfilterentry_button_press_event()
 {
-    keyboard = keyboard_show(filterentry);
+    keyboard = keyboard_show(streamfilterentry);
     g_signal_connect(G_OBJECT(keyboard), "destroy", G_CALLBACK(on_keyboard_destroy), NULL);
 }
 
-void on_filterentry_insert_text(GtkEditable *editable, gchar *text)
+void on_musicfilterentry_button_press_event()
+{
+    keyboard = keyboard_show(musicfilterentry);
+    g_signal_connect(G_OBJECT(keyboard), "destroy", G_CALLBACK(on_keyboard_destroy), NULL);
+}
+
+void on_streamfilterentry_insert_text(GtkEditable *editable, gchar *text)
 {
     UNUSED(editable);
 
     set_streams(text);
+}
+
+void on_musicfilterentry_insert_text(GtkEditable *editable, gchar *text)
+{
+    UNUSED(editable);
+
+    set_music(text);
 }
 
 void on_window_destroy()
@@ -279,12 +349,93 @@ gboolean set_wifi_signal_strength()
     return TRUE;
 }
 
+void set_music_database(const gchar *path)
+{
+    GError *error;
+    const gchar *filename;
+    GDir *dir = g_dir_open(path, 0, &error);
+
+    while ((filename = g_dir_read_name(dir))) {
+        gchar *pformat = "%s/%s";
+        gulong psize = strlen(pformat) + strlen(path) + strlen(filename);
+        gchar npath[psize];
+        g_snprintf(npath, psize, pformat, path, filename);
+        if (g_file_test(npath, G_FILE_TEST_IS_DIR) == TRUE) {
+            set_music_database(npath);
+        } else {
+            if (g_str_has_suffix(filename, ".mp3")) {
+                gchar *uformat = "file://%s";
+                gulong usize = strlen(uformat) + strlen(npath);
+                gchar url[usize];
+                g_snprintf(url, usize, uformat, npath);
+
+                sqlite3_stmt *sstatement;
+                gchar *sformat = "SELECT COUNT(*) FROM music WHERE name=? AND url=?";
+                gulong ssize = strlen(sformat) + strlen(filename) + strlen(url);
+                gchar squery[ssize];
+                g_snprintf(squery, ssize, sformat, filename, url);
+                sqlite3_prepare_v2(database, squery, -1, &sstatement, NULL);
+                sqlite3_bind_text(sstatement, 1, filename, strlen(filename), SQLITE_STATIC);
+                sqlite3_bind_text(sstatement, 2, url, strlen(url), SQLITE_STATIC);
+                sqlite3_step(sstatement);
+                gint result = sqlite3_column_int(sstatement, 0);
+                sqlite3_finalize(sstatement);
+
+                if (result == 0) {
+                    sqlite3_stmt *istatement;
+                    gchar *iformat = "INSERT INTO music(name, url) VALUES(?, ?)";
+                    gulong isize = strlen(iformat) + strlen(filename) + strlen(url);
+                    gchar iquery[isize];
+                    g_snprintf(iquery, isize, iformat, filename, url);
+                    sqlite3_prepare_v2(database, iquery, -1, &istatement, NULL);
+                    sqlite3_bind_text(istatement, 1, filename, strlen(filename), SQLITE_STATIC);
+                    sqlite3_bind_text(istatement, 2, url, strlen(url), SQLITE_STATIC);
+                    sqlite3_step(istatement);
+                    sqlite3_finalize(istatement);
+                }
+            }
+        }
+    }
+    g_dir_close(dir);
+}
+
+void get_files_in_directory(const gchar *path, gdouble *count)
+{
+    GError *error;
+    const gchar *filename;
+    GDir *dir = g_dir_open(path, 0, &error);
+
+    while ((filename = g_dir_read_name(dir))) {
+        gchar *format = "%s/%s";
+        gulong size = strlen(format) + strlen(path) + strlen(filename);
+        gchar subpath[size];
+        g_snprintf(subpath, size, format, path, filename);
+        if (g_file_test(subpath, G_FILE_TEST_IS_DIR) == TRUE)
+            get_files_in_directory(subpath, count);
+        else
+            (*count)++;
+    }
+    g_dir_close(dir);
+}
+
+void on_rescanbutton_clicked()
+{
+    gdouble count = 0;
+
+    get_files_in_directory(RASPIMP_MUSIC_DIR, &count);
+    gchar *format = "Scanning mp3 files from directory '%s'.";
+    gulong size = strlen(format) + strlen(RASPIMP_MUSIC_DIR);
+    gchar message[size];
+    snprintf(message, size, format, RASPIMP_MUSIC_DIR);
+    sqlite3_exec(database, "DELETE FROM music", NULL, 0, NULL);
+    set_music_database(RASPIMP_MUSIC_DIR);
+}
+
 void is_file(const char *FILENAME)
 {
     if (access(FILENAME, R_OK) != 0) {
-        GtkWidget *dialog = gtk_message_dialog_new(NULL, GTK_DIALOG_DESTROY_WITH_PARENT,
-                                                   GTK_MESSAGE_ERROR, GTK_BUTTONS_CLOSE,
-                                                   "Error while opening the file '%s'.", FILENAME);
+        GtkWidget *dialog = gtk_message_dialog_new(NULL, GTK_DIALOG_DESTROY_WITH_PARENT, GTK_MESSAGE_ERROR,
+                                                   GTK_BUTTONS_CLOSE, "Error while opening the file '%s'.", FILENAME);
         gtk_dialog_run(GTK_DIALOG(dialog));
         gtk_widget_destroy(dialog);
         exit(1);
@@ -298,6 +449,8 @@ void initialize_gtk()
     is_file(RASPIMP_CSS_FILE);
     is_file(RASPIMP_SQLITE_FILE);
     is_file(RASPIMP_GLADE_FILE);
+    is_file(KEYBOARD_GLADE_FILE);
+    is_file(RASPIMP_MUSIC_DIR);
 
     GtkBuilder *builder = gtk_builder_new();
     gtk_builder_add_from_file(builder, RASPIMP_GLADE_FILE, NULL);
@@ -308,16 +461,21 @@ void initialize_gtk()
     gtk_style_context_add_provider_for_screen(gdk_screen_get_default(), GTK_STYLE_PROVIDER(provider),
                                               GTK_STYLE_PROVIDER_PRIORITY_USER);
 
+    statuslabel = GTK_LABEL(gtk_builder_get_object(builder, "statuslabel"));
+    signallabel = GTK_LABEL(gtk_builder_get_object(builder, "signallabel"));
+    stopbutton = GTK_BUTTON(gtk_builder_get_object(builder, "stopbutton"));
     streamtree = GTK_TREE_VIEW(gtk_builder_get_object(builder, "streamtree"));
     streamstore = GTK_TREE_MODEL(gtk_builder_get_object(builder, "streamstore"));
-    statuslabel = GTK_LABEL(gtk_builder_get_object(builder, "statuslabel"));
-    stopbutton = GTK_BUTTON(gtk_builder_get_object(builder, "stopbutton"));
-    filterentry = GTK_ENTRY(gtk_builder_get_object(builder, "filterentry"));
-    signallabel = GTK_LABEL(gtk_builder_get_object(builder, "signallabel"));
+    streamfilterentry = GTK_ENTRY(gtk_builder_get_object(builder, "streamfilterentry"));
+    musictree = GTK_TREE_VIEW(gtk_builder_get_object(builder, "musictree"));
+    musicstore = GTK_TREE_MODEL(gtk_builder_get_object(builder, "musicstore"));
+    musicfilterentry = GTK_ENTRY(gtk_builder_get_object(builder, "musicfilterentry"));
 
     g_object_unref(builder);
     sqlite3_open(RASPIMP_SQLITE_FILE, &database);
+    set_music_database(RASPIMP_MUSIC_DIR);
     set_streams(NULL);
+    set_music(NULL);
     signaltimeout = g_timeout_add(5000, set_wifi_signal_strength, NULL);
     gtk_widget_show(window);
     gtk_main();

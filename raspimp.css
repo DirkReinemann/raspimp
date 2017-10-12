@@ -17,10 +17,15 @@ notebook {
 
 scrollbar slider {
     min-width: 25px;
+    min-height: 25px;
 }
 
 separator {
     background-color: #FFFFFF;
+}
+
+dialog label {
+    font-size: 20px;
 }
 
 .statuslabel {

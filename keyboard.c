@@ -8,7 +8,7 @@ const char *KEYBOARD_GLADE_FILE = "keyboard.glade";
 #endif
 
 GtkEntry *entry = NULL;
-GtkWidget *window = NULL;
+GtkWidget *keyboardwindow = NULL;
 
 void add_entry_value(const gchar *value)
 {
@@ -222,7 +222,7 @@ void on_spacebutton_clicked()
 
 void on_closebutton_clicked()
 {
-    gtk_window_close(GTK_WINDOW(window));
+    gtk_window_close(GTK_WINDOW(keyboardwindow));
 }
 
 void on_returnbutton_clicked()
@@ -247,7 +247,7 @@ GtkWidget *keyboard_show(GtkEntry *e)
     entry = e;
     GtkBuilder *builder = gtk_builder_new();
     gtk_builder_add_from_file(builder, KEYBOARD_GLADE_FILE, NULL);
-    window = GTK_WIDGET(gtk_builder_get_object(builder, "window"));
+    keyboardwindow = GTK_WIDGET(gtk_builder_get_object(builder, "window"));
 
     GtkButton *closebutton = GTK_BUTTON(gtk_builder_get_object(builder, "closebutton"));
     gtk_button_set_label(closebutton, "\u2715");
@@ -258,9 +258,9 @@ GtkWidget *keyboard_show(GtkEntry *e)
     GtkButton *clearbutton = GTK_BUTTON(gtk_builder_get_object(builder, "clearbutton"));
 
     gtk_button_set_label(clearbutton, "\u21a4");
-    gtk_window_move(GTK_WINDOW(window), 0, 240);
-    gtk_widget_show(window);
+    gtk_window_move(GTK_WINDOW(keyboardwindow), 0, 240);
+    gtk_widget_show(keyboardwindow);
     gtk_builder_connect_signals(builder, NULL);
     g_object_unref(builder);
-    return window;
+    return keyboardwindow;
 }
