@@ -369,66 +369,20 @@ void set_music_database(const gchar *path)
                 gchar url[usize];
                 g_snprintf(url, usize, uformat, npath);
 
-                sqlite3_stmt *sstatement;
-                gchar *sformat = "SELECT COUNT(*) FROM music WHERE name=? AND url=?";
-                gulong ssize = strlen(sformat) + strlen(filename) + strlen(url);
-                gchar squery[ssize];
-                g_snprintf(squery, ssize, sformat, filename, url);
-                sqlite3_prepare_v2(database, squery, -1, &sstatement, NULL);
-                sqlite3_bind_text(sstatement, 1, filename, strlen(filename), SQLITE_STATIC);
-                sqlite3_bind_text(sstatement, 2, url, strlen(url), SQLITE_STATIC);
-                sqlite3_step(sstatement);
-                gint result = sqlite3_column_int(sstatement, 0);
-                sqlite3_finalize(sstatement);
-
-                if (result == 0) {
-                    sqlite3_stmt *istatement;
-                    gchar *iformat = "INSERT INTO music(name, url) VALUES(?, ?)";
-                    gulong isize = strlen(iformat) + strlen(filename) + strlen(url);
-                    gchar iquery[isize];
-                    g_snprintf(iquery, isize, iformat, filename, url);
-                    sqlite3_prepare_v2(database, iquery, -1, &istatement, NULL);
-                    sqlite3_bind_text(istatement, 1, filename, strlen(filename), SQLITE_STATIC);
-                    sqlite3_bind_text(istatement, 2, url, strlen(url), SQLITE_STATIC);
-                    sqlite3_step(istatement);
-                    sqlite3_finalize(istatement);
-                }
+                sqlite3_stmt *statement;
+                gchar *iformat = "INSERT INTO music(name, url) VALUES(?, ?)";
+                gulong isize = strlen(iformat) + strlen(filename) + strlen(url);
+                gchar iquery[isize];
+                g_snprintf(iquery, isize, iformat, filename, url);
+                sqlite3_prepare_v2(database, iquery, -1, &statement, NULL);
+                sqlite3_bind_text(statement, 1, filename, strlen(filename), SQLITE_STATIC);
+                sqlite3_bind_text(statement, 2, url, strlen(url), SQLITE_STATIC);
+                sqlite3_step(statement);
+                sqlite3_finalize(statement);
             }
         }
     }
     g_dir_close(dir);
-}
-
-void get_files_in_directory(const gchar *path, gdouble *count)
-{
-    GError *error;
-    const gchar *filename;
-    GDir *dir = g_dir_open(path, 0, &error);
-
-    while ((filename = g_dir_read_name(dir))) {
-        gchar *format = "%s/%s";
-        gulong size = strlen(format) + strlen(path) + strlen(filename);
-        gchar subpath[size];
-        g_snprintf(subpath, size, format, path, filename);
-        if (g_file_test(subpath, G_FILE_TEST_IS_DIR) == TRUE)
-            get_files_in_directory(subpath, count);
-        else
-            (*count)++;
-    }
-    g_dir_close(dir);
-}
-
-void on_rescanbutton_clicked()
-{
-    gdouble count = 0;
-
-    get_files_in_directory(RASPIMP_MUSIC_DIR, &count);
-    gchar *format = "Scanning mp3 files from directory '%s'.";
-    gulong size = strlen(format) + strlen(RASPIMP_MUSIC_DIR);
-    gchar message[size];
-    snprintf(message, size, format, RASPIMP_MUSIC_DIR);
-    sqlite3_exec(database, "DELETE FROM music", NULL, 0, NULL);
-    set_music_database(RASPIMP_MUSIC_DIR);
 }
 
 void is_file(const char *FILENAME)
@@ -473,6 +427,7 @@ void initialize_gtk()
 
     g_object_unref(builder);
     sqlite3_open(RASPIMP_SQLITE_FILE, &database);
+    sqlite3_exec(database, "DELETE FROM music", NULL, 0, NULL);
     set_music_database(RASPIMP_MUSIC_DIR);
     set_streams(NULL);
     set_music(NULL);
