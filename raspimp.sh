@@ -17,7 +17,7 @@ usage()
 deploy()
 {
     make
-    zip -r9 raspimp.zip raspimp.c keyboard.c keyboard.h Makefile raspimp.db raspimp.css raspimp.glade keyboard.glade
+    zip -r9 raspimp.zip raspimp.c keyboard.c keyboard.h Makefile raspimp.db raspimp.css raspimp.glade keyboard.glade play.png pause.png stop.png
     scp raspimp.zip raspberrypi:/tmp
     rm raspimp.zip
 
@@ -30,10 +30,13 @@ deploy()
         cp raspimp.db /home/alarm/.config/raspimp/raspimp.db
         cp raspimp.css /home/alarm/.config/raspimp/raspimp.css
         cp keyboard.glade /home/alarm/.config/raspimp/keyboard.glade
+        cp play.png /home/alarm/.config/raspimp/play.png
+        cp pause.png /home/alarm/.config/raspimp/pause.png
+        cp stop.png /home/alarm/.config/raspimp/stop.png
         make
         sudo -v
         killall raspimp && sudo cp raspimp /usr/bin/raspimp
-        rm Makefile raspimp raspimp.c keyboard.c keyboard.h raspimp.db raspimp.css raspimp.glade keyboard.glade
+        rm Makefile raspimp raspimp.c keyboard.c keyboard.h raspimp.db raspimp.css raspimp.glade keyboard.glade play.png pause.png stop.png
     '
 }
 

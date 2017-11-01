@@ -19,14 +19,21 @@ const char *RASPIMP_SQLITE_FILE = "/home/alarm/.config/raspimp/raspimp.db";
 const char *RASPIMP_CSS_FILE = "/home/alarm/.config/raspimp/raspimp.css";
 const char *RASPIMP_MUSIC_DIR = "/home/alarm/music";
 const char *RASPIMP_WLAN_INTERFACE = "wlan0";
+const char *RASPIMP_PAUSE_IMAGE = "/home/alarm/.config/raspimp/pause.png";
+const char *RASPIMP_PLAY_IMAGE = "/home/alarm/.config/raspimp/play.png";
+const char *RASPIMP_STOP_IMAGE = "/home/alarm/.config/raspimp/stop.png";
 #else
 const char *RASPIMP_GLADE_FILE = "raspimp.glade";
 const char *RASPIMP_SQLITE_FILE = "raspimp.db";
 const char *RASPIMP_CSS_FILE = "raspimp.css";
 const char *RASPIMP_MUSIC_DIR = "/home/dirk/Music/Diverse";
 const char *RASPIMP_WLAN_INTERFACE = "wlp3s0";
+const char *RASPIMP_PAUSE_IMAGE = "pause.png";
+const char *RASPIMP_PLAY_IMAGE = "play.png";
+const char *RASPIMP_STOP_IMAGE = "stop.png";
 #endif
 
+GtkWidget *window = NULL;
 GtkLabel *statuslabel = NULL;
 GtkLabel *signallabel = NULL;
 GtkLabel *positionlabel = NULL;
@@ -43,6 +50,7 @@ GtkAdjustment *adjustment = NULL;
 GtkScale *scale = NULL;
 GtkNotebook *notebook = NULL;
 GtkImage *pauseimage = NULL;
+GtkImage *stopimage = NULL;
 
 GMainLoop *loop = NULL;
 GstElement *playbin = NULL;
@@ -101,7 +109,7 @@ void stop_stream()
     gtk_widget_set_sensitive(GTK_WIDGET(stopbutton), FALSE);
     gtk_widget_set_sensitive(GTK_WIDGET(pausebutton), FALSE);
     gtk_label_set_label(positionlabel, "00:00:00 / 00:00:00");
-    gtk_image_set_from_icon_name(pauseimage, "gtk-media-pause", GTK_ICON_SIZE_BUTTON);
+    gtk_image_set_from_file(pauseimage, RASPIMP_PAUSE_IMAGE);
     paused = 0;
     gtk_adjustment_set_value(adjustment, 0.00);
     gtk_widget_set_sensitive(GTK_WIDGET(scale), FALSE);
@@ -274,11 +282,11 @@ void on_pausebutton_clicked()
     if (playbin != NULL) {
         if (paused) {
             gst_element_set_state(playbin, GST_STATE_PLAYING);
-            gtk_image_set_from_icon_name(pauseimage, "gtk-media-pause", GTK_ICON_SIZE_BUTTON);
+            gtk_image_set_from_file(pauseimage, RASPIMP_PAUSE_IMAGE);
             paused = 0;
         } else {
             gst_element_set_state(playbin, GST_STATE_PAUSED);
-            gtk_image_set_from_icon_name(pauseimage, "gtk-media-play", GTK_ICON_SIZE_BUTTON);
+            gtk_image_set_from_file(pauseimage, RASPIMP_PLAY_IMAGE);
             paused = 1;
         }
     }
@@ -342,7 +350,7 @@ void on_window_destroy()
     gtk_main_quit();
 }
 
-void on_progressscale_button_release_event()
+void on_scale_button_release_event()
 {
     gint64 len;
 
@@ -352,6 +360,7 @@ void on_progressscale_button_release_event()
             gint64 pos = len / 100 * value;
             gst_element_seek(playbin, 1.0, GST_FORMAT_TIME, GST_SEEK_FLAG_FLUSH, GST_SEEK_TYPE_SET, pos,
                              GST_SEEK_TYPE_NONE, GST_CLOCK_TIME_NONE);
+            gtk_window_set_focus(GTK_WINDOW(window), GTK_WIDGET(stopbutton));
         }
     }
 }
@@ -508,13 +517,13 @@ void initialize_gtk()
 
     GtkBuilder *builder = gtk_builder_new();
     gtk_builder_add_from_file(builder, RASPIMP_GLADE_FILE, NULL);
-    GtkWidget *window = GTK_WIDGET(gtk_builder_get_object(builder, "window"));
     gtk_builder_connect_signals(builder, NULL);
     GtkCssProvider *provider = gtk_css_provider_get_default();
     gtk_css_provider_load_from_path(provider, RASPIMP_CSS_FILE, NULL);
     gtk_style_context_add_provider_for_screen(gdk_screen_get_default(), GTK_STYLE_PROVIDER(provider),
                                               GTK_STYLE_PROVIDER_PRIORITY_USER);
 
+    window = GTK_WIDGET(gtk_builder_get_object(builder, "window"));
     statuslabel = GTK_LABEL(gtk_builder_get_object(builder, "statuslabel"));
     signallabel = GTK_LABEL(gtk_builder_get_object(builder, "signallabel"));
     positionlabel = GTK_LABEL(gtk_builder_get_object(builder, "positionlabel"));
@@ -530,8 +539,11 @@ void initialize_gtk()
     scale = GTK_SCALE(gtk_builder_get_object(builder, "scale"));
     notebook = GTK_NOTEBOOK(gtk_builder_get_object(builder, "notebook"));
     pauseimage = GTK_IMAGE(gtk_builder_get_object(builder, "pauseimage"));
+    stopimage = GTK_IMAGE(gtk_builder_get_object(builder, "stopimage"));
 
     g_object_unref(builder);
+    gtk_image_set_from_file(pauseimage, RASPIMP_PAUSE_IMAGE);
+    gtk_image_set_from_file(stopimage, RASPIMP_STOP_IMAGE);
     sqlite3_open(RASPIMP_SQLITE_FILE, &database);
     sqlite3_exec(database, "DELETE FROM music", NULL, 0, NULL);
     set_music_database(RASPIMP_MUSIC_DIR);

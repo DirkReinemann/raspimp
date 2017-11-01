@@ -16,12 +16,12 @@
   <object class="GtkImage" id="pauseimage">
     <property name="visible">True</property>
     <property name="can_focus">False</property>
-    <property name="stock">gtk-media-pause</property>
+    <property name="pixbuf">pause.png</property>
   </object>
   <object class="GtkImage" id="stopimage">
     <property name="visible">True</property>
     <property name="can_focus">False</property>
-    <property name="stock">gtk-media-stop</property>
+    <property name="pixbuf">stop.png</property>
   </object>
   <object class="GtkListStore" id="streamstore">
     <columns>
@@ -259,9 +259,6 @@
           </packing>
         </child>
         <child>
-          <placeholder/>
-        </child>
-        <child>
           <object class="GtkBox" id="actionbox">
             <property name="visible">True</property>
             <property name="can_focus">False</property>
@@ -314,14 +311,14 @@
               <object class="GtkScale" id="scale">
                 <property name="visible">True</property>
                 <property name="sensitive">False</property>
-                <property name="can_focus">True</property>
+                <property name="can_focus">False</property>
                 <property name="adjustment">adjustment</property>
                 <property name="restrict_to_fill_level">False</property>
                 <property name="fill_level">0</property>
                 <property name="digits">0</property>
                 <property name="draw_value">False</property>
                 <property name="value_pos">left</property>
-                <signal name="button-release-event" handler="on_progressscale_button_release_event" swapped="no"/>
+                <signal name="button-release-event" handler="on_scale_button_release_event" swapped="no"/>
               </object>
               <packing>
                 <property name="expand">True</property>
