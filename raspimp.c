@@ -22,6 +22,7 @@ const char *RASPIMP_WLAN_INTERFACE = "wlan0";
 const char *RASPIMP_PAUSE_IMAGE = "/home/alarm/.config/raspimp/pause.png";
 const char *RASPIMP_PLAY_IMAGE = "/home/alarm/.config/raspimp/play.png";
 const char *RASPIMP_STOP_IMAGE = "/home/alarm/.config/raspimp/stop.png";
+const char *RASPIMP_SHUTDOWN_IMAGE = "/home/alarm/.config/raspimp/shutdown.png";
 #else
 const char *RASPIMP_GLADE_FILE = "raspimp.glade";
 const char *RASPIMP_SQLITE_FILE = "raspimp.db";
@@ -31,6 +32,7 @@ const char *RASPIMP_WLAN_INTERFACE = "wlp3s0";
 const char *RASPIMP_PAUSE_IMAGE = "pause.png";
 const char *RASPIMP_PLAY_IMAGE = "play.png";
 const char *RASPIMP_STOP_IMAGE = "stop.png";
+const char *RASPIMP_SHUTDOWN_IMAGE = "shutdown.png";
 #endif
 
 GtkWidget *window = NULL;
@@ -51,6 +53,7 @@ GtkScale *scale = NULL;
 GtkNotebook *notebook = NULL;
 GtkImage *pauseimage = NULL;
 GtkImage *stopimage = NULL;
+GtkImage *shutdownimage = NULL;
 
 GMainLoop *loop = NULL;
 GstElement *playbin = NULL;
@@ -365,6 +368,11 @@ void on_scale_button_release_event()
     }
 }
 
+void on_shutdownbutton_clicked()
+{
+    system("sudo poweroff");
+}
+
 gboolean set_wifi_signal_strength()
 {
     int psize = strlen(RASPIMP_WLAN_INTERFACE) + 10;
@@ -540,10 +548,12 @@ void initialize_gtk()
     notebook = GTK_NOTEBOOK(gtk_builder_get_object(builder, "notebook"));
     pauseimage = GTK_IMAGE(gtk_builder_get_object(builder, "pauseimage"));
     stopimage = GTK_IMAGE(gtk_builder_get_object(builder, "stopimage"));
+    shutdownimage = GTK_IMAGE(gtk_builder_get_object(builder, "shutdownimage"));
 
     g_object_unref(builder);
     gtk_image_set_from_file(pauseimage, RASPIMP_PAUSE_IMAGE);
     gtk_image_set_from_file(stopimage, RASPIMP_STOP_IMAGE);
+    gtk_image_set_from_file(shutdownimage, RASPIMP_SHUTDOWN_IMAGE);
     sqlite3_open(RASPIMP_SQLITE_FILE, &database);
     sqlite3_exec(database, "DELETE FROM music", NULL, 0, NULL);
     set_music_database(RASPIMP_MUSIC_DIR);
