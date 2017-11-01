@@ -2,11 +2,26 @@
 <!-- Generated with glade 3.20.1 -->
 <interface>
   <requires lib="gtk+" version="3.20"/>
+  <object class="GtkAdjustment" id="adjustment">
+    <property name="upper">100</property>
+    <property name="step_increment">1</property>
+    <property name="page_increment">10</property>
+  </object>
   <object class="GtkListStore" id="musicstore">
     <columns>
       <!-- column-name name -->
       <column type="gchararray"/>
     </columns>
+  </object>
+  <object class="GtkImage" id="pauseimage">
+    <property name="visible">True</property>
+    <property name="can_focus">False</property>
+    <property name="stock">gtk-media-pause</property>
+  </object>
+  <object class="GtkImage" id="stopimage">
+    <property name="visible">True</property>
+    <property name="can_focus">False</property>
+    <property name="stock">gtk-media-stop</property>
   </object>
   <object class="GtkListStore" id="streamstore">
     <columns>
@@ -19,6 +34,7 @@
     <property name="default_width">800</property>
     <property name="default_height">480</property>
     <signal name="destroy" handler="on_window_destroy" swapped="no"/>
+    <signal name="key-press-event" handler="on_window_key_press_event" swapped="no"/>
     <child>
       <object class="GtkBox" id="mainbox">
         <property name="visible">True</property>
@@ -243,6 +259,9 @@
           </packing>
         </child>
         <child>
+          <placeholder/>
+        </child>
+        <child>
           <object class="GtkBox" id="actionbox">
             <property name="visible">True</property>
             <property name="can_focus">False</property>
@@ -250,25 +269,83 @@
             <property name="margin_right">10</property>
             <property name="spacing">10</property>
             <child>
+              <object class="GtkLabel" id="signallabel">
+                <property name="visible">True</property>
+                <property name="can_focus">False</property>
+                <property name="label" translatable="yes">100%</property>
+              </object>
+              <packing>
+                <property name="expand">False</property>
+                <property name="fill">True</property>
+                <property name="position">0</property>
+              </packing>
+            </child>
+            <child>
               <object class="GtkButton" id="stopbutton">
-                <property name="label" translatable="yes">STOP</property>
                 <property name="visible">True</property>
                 <property name="sensitive">False</property>
                 <property name="can_focus">True</property>
                 <property name="receives_default">True</property>
+                <property name="image">stopimage</property>
                 <signal name="clicked" handler="on_stopbutton_clicked" swapped="no"/>
+              </object>
+              <packing>
+                <property name="expand">False</property>
+                <property name="fill">True</property>
+                <property name="position">1</property>
+              </packing>
+            </child>
+            <child>
+              <object class="GtkButton" id="pausebutton">
+                <property name="visible">True</property>
+                <property name="sensitive">False</property>
+                <property name="can_focus">True</property>
+                <property name="receives_default">True</property>
+                <property name="image">pauseimage</property>
+                <signal name="clicked" handler="on_pausebutton_clicked" swapped="no"/>
+              </object>
+              <packing>
+                <property name="expand">False</property>
+                <property name="fill">True</property>
+                <property name="position">2</property>
+              </packing>
+            </child>
+            <child>
+              <object class="GtkScale" id="scale">
+                <property name="visible">True</property>
+                <property name="sensitive">False</property>
+                <property name="can_focus">True</property>
+                <property name="adjustment">adjustment</property>
+                <property name="restrict_to_fill_level">False</property>
+                <property name="fill_level">0</property>
+                <property name="digits">0</property>
+                <property name="draw_value">False</property>
+                <property name="value_pos">left</property>
+                <signal name="button-release-event" handler="on_progressscale_button_release_event" swapped="no"/>
               </object>
               <packing>
                 <property name="expand">True</property>
                 <property name="fill">True</property>
-                <property name="position">1</property>
+                <property name="position">3</property>
+              </packing>
+            </child>
+            <child>
+              <object class="GtkLabel" id="positionlabel">
+                <property name="visible">True</property>
+                <property name="can_focus">False</property>
+                <property name="label" translatable="yes">00:00:00 / 00:00:00</property>
+              </object>
+              <packing>
+                <property name="expand">False</property>
+                <property name="fill">True</property>
+                <property name="position">4</property>
               </packing>
             </child>
           </object>
           <packing>
             <property name="expand">False</property>
             <property name="fill">True</property>
-            <property name="position">1</property>
+            <property name="position">2</property>
           </packing>
         </child>
         <child>
@@ -280,38 +357,9 @@
             <property name="margin_bottom">10</property>
             <property name="spacing">10</property>
             <child>
-              <object class="GtkLabel" id="signallabel">
-                <property name="visible">True</property>
-                <property name="can_focus">False</property>
-                <property name="label" translatable="yes">100%</property>
-                <style>
-                  <class name="statuslabel"/>
-                </style>
-              </object>
-              <packing>
-                <property name="expand">False</property>
-                <property name="fill">True</property>
-                <property name="position">0</property>
-              </packing>
-            </child>
-            <child>
-              <object class="GtkSeparator">
-                <property name="visible">True</property>
-                <property name="can_focus">False</property>
-              </object>
-              <packing>
-                <property name="expand">False</property>
-                <property name="fill">True</property>
-                <property name="position">1</property>
-              </packing>
-            </child>
-            <child>
               <object class="GtkLabel" id="statuslabel">
                 <property name="visible">True</property>
                 <property name="can_focus">False</property>
-                <style>
-                  <class name="statuslabel"/>
-                </style>
               </object>
               <packing>
                 <property name="expand">True</property>
@@ -323,7 +371,7 @@
           <packing>
             <property name="expand">False</property>
             <property name="fill">True</property>
-            <property name="position">2</property>
+            <property name="position">3</property>
           </packing>
         </child>
       </object>

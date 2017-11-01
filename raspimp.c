@@ -18,16 +18,20 @@ const char *RASPIMP_GLADE_FILE = "/home/alarm/.config/raspimp/raspimp.glade";
 const char *RASPIMP_SQLITE_FILE = "/home/alarm/.config/raspimp/raspimp.db";
 const char *RASPIMP_CSS_FILE = "/home/alarm/.config/raspimp/raspimp.css";
 const char *RASPIMP_MUSIC_DIR = "/home/alarm/music";
+const char *RASPIMP_WLAN_INTERFACE = "wlan0";
 #else
 const char *RASPIMP_GLADE_FILE = "raspimp.glade";
 const char *RASPIMP_SQLITE_FILE = "raspimp.db";
 const char *RASPIMP_CSS_FILE = "raspimp.css";
-const char *RASPIMP_MUSIC_DIR = "/home/dirk/Music/Bassdrive";
+const char *RASPIMP_MUSIC_DIR = "/home/dirk/Music/Diverse";
+const char *RASPIMP_WLAN_INTERFACE = "wlp3s0";
 #endif
 
 GtkLabel *statuslabel = NULL;
 GtkLabel *signallabel = NULL;
+GtkLabel *positionlabel = NULL;
 GtkButton *stopbutton = NULL;
+GtkButton *pausebutton = NULL;
 GtkWidget *keyboard = NULL;
 GtkTreeModel *streamstore = NULL;
 GtkTreeView *streamtree = NULL;
@@ -35,6 +39,10 @@ GtkEntry *streamfilterentry = NULL;
 GtkTreeModel *musicstore = NULL;
 GtkTreeView *musictree = NULL;
 GtkEntry *musicfilterentry = NULL;
+GtkAdjustment *adjustment = NULL;
+GtkScale *scale = NULL;
+GtkNotebook *notebook = NULL;
+GtkImage *pauseimage = NULL;
 
 GMainLoop *loop = NULL;
 GstElement *playbin = NULL;
@@ -45,6 +53,8 @@ GtkTreeModel *playingmodel = NULL;
 gchar *playingname = NULL;
 
 gint signaltimeout = 0;
+gint positiontimeout = 0;
+gint paused = 0;
 
 sqlite3 *database = NULL;
 
@@ -89,6 +99,12 @@ void stop_stream()
     playingname = NULL;
     playingmodel = NULL;
     gtk_widget_set_sensitive(GTK_WIDGET(stopbutton), FALSE);
+    gtk_widget_set_sensitive(GTK_WIDGET(pausebutton), FALSE);
+    gtk_label_set_label(positionlabel, "00:00:00 / 00:00:00");
+    gtk_image_set_from_icon_name(pauseimage, "gtk-media-pause", GTK_ICON_SIZE_BUTTON);
+    paused = 0;
+    gtk_adjustment_set_value(adjustment, 0.00);
+    gtk_widget_set_sensitive(GTK_WIDGET(scale), FALSE);
 }
 
 gboolean on_bus_message(GstBus *bus, GstMessage *message, gpointer data)
@@ -202,6 +218,9 @@ void start_stream(const gchar *url, GtkTreeView *treeview, GtkTreeModel *treemod
     loop = g_main_loop_new(NULL, FALSE);
     set_status("", FALSE);
     gtk_widget_set_sensitive(GTK_WIDGET(stopbutton), TRUE);
+    gtk_widget_set_sensitive(GTK_WIDGET(pausebutton), TRUE);
+    if (gtk_notebook_get_current_page(notebook) == 1)
+        gtk_widget_set_sensitive(GTK_WIDGET(scale), TRUE);
     playingname = get_selection_name(treeview, treemodel);
     playingtree = treeview;
     playingmodel = treemodel;
@@ -248,6 +267,21 @@ void on_stopbutton_clicked()
     }
     set_status("", FALSE);
     stop_stream();
+}
+
+void on_pausebutton_clicked()
+{
+    if (playbin != NULL) {
+        if (paused) {
+            gst_element_set_state(playbin, GST_STATE_PLAYING);
+            gtk_image_set_from_icon_name(pauseimage, "gtk-media-pause", GTK_ICON_SIZE_BUTTON);
+            paused = 0;
+        } else {
+            gst_element_set_state(playbin, GST_STATE_PAUSED);
+            gtk_image_set_from_icon_name(pauseimage, "gtk-media-play", GTK_ICON_SIZE_BUTTON);
+            paused = 1;
+        }
+    }
 }
 
 void on_keyboard_destroy()
@@ -302,14 +336,33 @@ void on_musicfilterentry_insert_text(GtkEditable *editable, gchar *text)
 void on_window_destroy()
 {
     g_source_remove(signaltimeout);
+    g_source_remove(positiontimeout);
     stop_stream();
     sqlite3_close(database);
     gtk_main_quit();
 }
 
+void on_progressscale_button_release_event()
+{
+    gint64 len;
+
+    if (playbin != NULL) {
+        if (gst_element_query_duration(playbin, GST_FORMAT_TIME, &len)) {
+            gdouble value = gtk_adjustment_get_value(adjustment);
+            gint64 pos = len / 100 * value;
+            gst_element_seek(playbin, 1.0, GST_FORMAT_TIME, GST_SEEK_FLAG_FLUSH, GST_SEEK_TYPE_SET, pos,
+                             GST_SEEK_TYPE_NONE, GST_CLOCK_TIME_NONE);
+        }
+    }
+}
+
 gboolean set_wifi_signal_strength()
 {
-    FILE *file = popen("iwconfig wlp3s0", "r");
+    int psize = strlen(RASPIMP_WLAN_INTERFACE) + 10;
+    char pformat[psize];
+
+    snprintf(pformat, psize, "iwconfig %s", RASPIMP_WLAN_INTERFACE);
+    FILE *file = popen(pformat, "r");
 
     if (file != NULL) {
         char *line = NULL;
@@ -338,13 +391,49 @@ gboolean set_wifi_signal_strength()
 
                 double strength = (double)now / max * 100.0;
                 gchar sstrength[5];
-                g_snprintf(sstrength, 5, "%.0f%%", strength);
+                g_snprintf(sstrength, 5, "%03.0f%%", strength);
                 gtk_label_set_text(signallabel, sstrength);
                 found = 1;
             }
         }
         free(line);
         pclose(file);
+    }
+    return TRUE;
+}
+
+gchar *format_time(gint64 value, gchar *format)
+{
+    gint hours = value / (GST_SECOND * 60 * 60);
+    gint minutes = (value / (GST_SECOND * 60)) % 60;
+    gint seconds = (value / GST_SECOND) % 60;
+    gint size = 9;
+
+    format = g_malloc(size * sizeof(gchar));
+    g_snprintf(format, size, "%02i:%02i:%02i", hours, minutes, seconds);
+    return format;
+}
+
+gboolean set_position()
+{
+    gint64 pos = 0, len = 0;
+    gchar *fpos = NULL, *flen = NULL;
+
+    if (playbin != NULL) {
+        if (gst_element_query_position(playbin, GST_FORMAT_TIME, &pos) &&
+            gst_element_query_duration(playbin, GST_FORMAT_TIME, &len)) {
+            fpos = format_time(pos, fpos);
+            flen = format_time(len, flen);
+            gint size = strlen(fpos) + strlen(flen) + 4;
+            gchar position[size];
+            g_snprintf(position, size, "%s / %s", fpos, flen);
+            g_free(fpos);
+            g_free(flen);
+            gtk_label_set_label(positionlabel, position);
+            gdouble percent = (gdouble)pos / (gdouble)len * 100.0;
+            if (percent > 0)
+                gtk_adjustment_set_value(adjustment, percent);
+        }
     }
     return TRUE;
 }
@@ -396,6 +485,17 @@ void is_file(const char *FILENAME)
     }
 }
 
+gboolean on_window_key_press_event(GtkWidget *widget, GdkEventKey *event)
+{
+    UNUSED(widget);
+    switch (event->keyval) {
+    case GDK_KEY_i: {
+        // use this keypress event to test a functionality
+    }
+    }
+    return FALSE;
+}
+
 void initialize_gtk()
 {
     gtk_init(NULL, NULL);
@@ -417,13 +517,19 @@ void initialize_gtk()
 
     statuslabel = GTK_LABEL(gtk_builder_get_object(builder, "statuslabel"));
     signallabel = GTK_LABEL(gtk_builder_get_object(builder, "signallabel"));
+    positionlabel = GTK_LABEL(gtk_builder_get_object(builder, "positionlabel"));
     stopbutton = GTK_BUTTON(gtk_builder_get_object(builder, "stopbutton"));
+    pausebutton = GTK_BUTTON(gtk_builder_get_object(builder, "pausebutton"));
     streamtree = GTK_TREE_VIEW(gtk_builder_get_object(builder, "streamtree"));
     streamstore = GTK_TREE_MODEL(gtk_builder_get_object(builder, "streamstore"));
     streamfilterentry = GTK_ENTRY(gtk_builder_get_object(builder, "streamfilterentry"));
     musictree = GTK_TREE_VIEW(gtk_builder_get_object(builder, "musictree"));
     musicstore = GTK_TREE_MODEL(gtk_builder_get_object(builder, "musicstore"));
     musicfilterentry = GTK_ENTRY(gtk_builder_get_object(builder, "musicfilterentry"));
+    adjustment = GTK_ADJUSTMENT(gtk_builder_get_object(builder, "adjustment"));
+    scale = GTK_SCALE(gtk_builder_get_object(builder, "scale"));
+    notebook = GTK_NOTEBOOK(gtk_builder_get_object(builder, "notebook"));
+    pauseimage = GTK_IMAGE(gtk_builder_get_object(builder, "pauseimage"));
 
     g_object_unref(builder);
     sqlite3_open(RASPIMP_SQLITE_FILE, &database);
@@ -432,6 +538,7 @@ void initialize_gtk()
     set_streams(NULL);
     set_music(NULL);
     signaltimeout = g_timeout_add(5000, set_wifi_signal_strength, NULL);
+    positiontimeout = g_timeout_add(500, set_position, NULL);
     gtk_widget_show(window);
     gtk_main();
 }

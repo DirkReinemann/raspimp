@@ -33,7 +33,7 @@ deploy()
         make
         sudo -v
         killall raspimp && sudo cp raspimp /usr/bin/raspimp
-        rm Makefile raspimp raspimp.c keyboard.c keyboard.h Makefile raspimp.db raspimp.css raspimp.glade keyboard.glade
+        rm Makefile raspimp raspimp.c keyboard.c keyboard.h raspimp.db raspimp.css raspimp.glade keyboard.glade
     '
 }
 

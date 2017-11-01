@@ -1,8 +1,8 @@
 * {
-    font: 26px "Monospace";
+    font: 20px "Monospace";
 }
 
-window, box, treeview, notebook box {
+window, treeview, notebook box {
     color: #FFFFFF;
     background-color: #333333;
 }
@@ -16,18 +16,10 @@ notebook {
 }
 
 scrollbar slider {
-    min-width: 25px;
-    min-height: 25px;
+    min-width: 20px;
+    min-height: 20px;
 }
 
 separator {
     background-color: #FFFFFF;
-}
-
-dialog label {
-    font-size: 20px;
-}
-
-.statuslabel {
-    font-size: 20px;
 }
