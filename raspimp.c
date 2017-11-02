@@ -409,7 +409,17 @@ gboolean set_wifi_signal_strength()
                 double strength = (double)now / max * 100.0;
                 gchar sstrength[5];
                 g_snprintf(sstrength, 5, "%03.0f%%", strength);
-                gtk_label_set_text(signallabel, sstrength);
+                gchar *text = NULL;
+                gchar color[7];
+                if (strength > 70)
+                    g_strlcpy(color, "green", 6);
+                else if (strength > 40)
+                    g_strlcpy(color, "yellow", 7);
+                else
+                    g_strlcpy(color, "red", 4);
+                text = g_markup_printf_escaped("<span foreground=\"\%s\">\%s</span>", color, sstrength);
+                gtk_label_set_markup(signallabel, text);
+                g_free(text);
                 found = 1;
             }
         }
