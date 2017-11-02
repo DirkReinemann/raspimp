@@ -5,7 +5,7 @@ BIN=raspimp
 
 all: compile
 
-compile: clean
+compile:
 	$(CC) $(CFLAGS) $(SOURCES) -o $(BIN)
 
 clean:
@@ -28,5 +28,4 @@ install: compile
 
 uninstall:
 	rm -rf /usr/share/raspimp
-	rm ~/.raspimp.db
 	killall raspimp ; rm /usr/bin/raspimp
