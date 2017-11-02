@@ -2,5 +2,5 @@
 *.log
 *.out
 raspimp
-raspimp.db
+.raspimp.db
 *~

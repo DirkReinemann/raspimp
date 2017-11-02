@@ -593,6 +593,10 @@ void initialize_gtk()
     is_file(RASPIMP_SQL_FILE);
     is_file(RASPIMP_GLADE_FILE);
     is_file(KEYBOARD_GLADE_FILE);
+    is_file(RASPIMP_PLAY_IMAGE);
+    is_file(RASPIMP_PAUSE_IMAGE);
+    is_file(RASPIMP_STOP_IMAGE);
+    is_file(RASPIMP_SHUTDOWN_IMAGE);
     is_file(musicdir);
 
     GtkBuilder *builder = gtk_builder_new();
