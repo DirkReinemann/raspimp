@@ -5,7 +5,7 @@ BIN=raspimp
 
 all: compile
 
-compile:
+compile: clean
 	$(CC) $(CFLAGS) $(SOURCES) -o $(BIN)
 
 clean:
@@ -13,3 +13,21 @@ clean:
 
 run: compile
 	./raspimp
+
+install: compile
+	mkdir -p ~/.config/raspimp
+	mkdir -p ~/music
+	cp raspimp.glade ~/.config/raspimp/raspimp.glade
+	cp raspimp.db ~/.config/raspimp/raspimp.db
+	cp raspimp.css ~/.config/raspimp/raspimp.css
+	cp keyboard.glade ~/.config/raspimp/keyboard.glade
+	cp pause.png ~/.config/raspimp/pause.png
+	cp play.png ~/.config/raspimp/play.png
+	cp stop.png ~/.config/raspimp/stop.png
+	cp shutdown.png ~/.config/raspimp/shutdown.png
+	sudo -v && killall raspimp ; sudo cp raspimp /usr/bin/raspimp
+
+uninstall:
+	rm -rf ~/.config/raspimp
+	sudo -v
+	killall raspimp && sudo rm /usr/bin/raspimp

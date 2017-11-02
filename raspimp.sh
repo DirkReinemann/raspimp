@@ -25,15 +25,15 @@ deploy()
         cd /tmp
         unzip raspimp.zip
         rm raspimp.zip
-        mkdir -p /home/alarm/.config/raspimp
-        cp raspimp.glade /home/alarm/.config/raspimp/raspimp.glade
-        cp raspimp.db /home/alarm/.config/raspimp/raspimp.db
-        cp raspimp.css /home/alarm/.config/raspimp/raspimp.css
-        cp keyboard.glade /home/alarm/.config/raspimp/keyboard.glade
-        cp play.png /home/alarm/.config/raspimp/play.png
-        cp pause.png /home/alarm/.config/raspimp/pause.png
-        cp stop.png /home/alarm/.config/raspimp/stop.png
-        cp shutdown.png /home/alarm/.config/raspimp/shutdown.png
+        mkdir -p ~/.config/raspimp
+        cp raspimp.glade ~/.config/raspimp/raspimp.glade
+        cp raspimp.db ~/.config/raspimp/raspimp.db
+        cp raspimp.css ~/.config/raspimp/raspimp.css
+        cp keyboard.glade ~/.config/raspimp/keyboard.glade
+        cp play.png ~/.config/raspimp/play.png
+        cp pause.png ~/.config/raspimp/pause.png
+        cp stop.png ~/.config/raspimp/stop.png
+        cp shutdown.png ~/.config/raspimp/shutdown.png
         make
         sudo -v
         killall raspimp && sudo cp raspimp /usr/bin/raspimp
@@ -52,7 +52,7 @@ sqlite()
 
 database()
 {
-    scp raspimp.db raspberrypi:/home/alarm/.config/raspimp/
+    scp raspimp.db raspberrypi:~/.config/raspimp/
     ssh raspberrypi 'killall raspimp'
 }
 
