@@ -14,25 +14,25 @@ enum {
 };
 
 #ifdef __arm__
-const char *RASPIMP_GLADE_FILE = "/home/alarm/.config/raspimp/raspimp.glade";
-const char *RASPIMP_SQLITE_FILE = "/home/alarm/.config/raspimp/raspimp.db";
-const char *RASPIMP_CSS_FILE = "/home/alarm/.config/raspimp/raspimp.css";
-const char *RASPIMP_MUSIC_DIR = "/home/alarm/music";
-const char *RASPIMP_WLAN_INTERFACE = "wlan0";
-const char *RASPIMP_PAUSE_IMAGE = "/home/alarm/.config/raspimp/pause.png";
-const char *RASPIMP_PLAY_IMAGE = "/home/alarm/.config/raspimp/play.png";
-const char *RASPIMP_STOP_IMAGE = "/home/alarm/.config/raspimp/stop.png";
-const char *RASPIMP_SHUTDOWN_IMAGE = "/home/alarm/.config/raspimp/shutdown.png";
+const char *RASPIMP_GLADE_FILE = "/usr/share/raspimp/raspimp.glade";
+const char *RASPIMP_CSS_FILE = "/usr/share/raspimp/raspimp.css";
+const char *RASPIMP_PAUSE_IMAGE = "/usr/share/raspimp/pause.png";
+const char *RASPIMP_PLAY_IMAGE = "/usr/share/raspimp/play.png";
+const char *RASPIMP_STOP_IMAGE = "/usr/share/raspimp/stop.png";
+const char *RASPIMP_SHUTDOWN_IMAGE = "/usr/share/raspimp/shutdown.png";
+const char *RASPIMP_SQL_FILE = "/usr/share/raspimp/raspimp.sql";
+const char *RASPIMP_DB_FILENAME = ".raspimp.db";
+const char *RASPIMP_MUSIC_DIR = "Music";
 #else
 const char *RASPIMP_GLADE_FILE = "raspimp.glade";
-const char *RASPIMP_SQLITE_FILE = "raspimp.db";
 const char *RASPIMP_CSS_FILE = "raspimp.css";
-const char *RASPIMP_MUSIC_DIR = "/home/dirk/Music/Diverse";
-const char *RASPIMP_WLAN_INTERFACE = "wlp3s0";
 const char *RASPIMP_PAUSE_IMAGE = "pause.png";
 const char *RASPIMP_PLAY_IMAGE = "play.png";
 const char *RASPIMP_STOP_IMAGE = "stop.png";
 const char *RASPIMP_SHUTDOWN_IMAGE = "shutdown.png";
+const char *RASPIMP_SQL_FILE = "raspimp.sql";
+const char *RASPIMP_DB_FILENAME = ".raspimp.db";
+const char *RASPIMP_MUSIC_DIR = "Music/Diverse";
 #endif
 
 GtkWidget *window = NULL;
@@ -66,6 +66,8 @@ gchar *playingname = NULL;
 gint signaltimeout = 0;
 gint positiontimeout = 0;
 gint paused = 0;
+
+gchar *wlaninterface = NULL;
 
 sqlite3 *database = NULL;
 
@@ -348,6 +350,7 @@ void on_window_destroy()
 {
     g_source_remove(signaltimeout);
     g_source_remove(positiontimeout);
+    g_free(wlaninterface);
     stop_stream();
     sqlite3_close(database);
     gtk_main_quit();
@@ -373,12 +376,41 @@ void on_shutdownbutton_clicked()
     system("sudo poweroff");
 }
 
+char *get_wlan_interface(gchar *name)
+{
+    FILE *file = popen("ip link", "r");
+
+    if (file != NULL) {
+        char *line = NULL;
+        size_t length = 0;
+        ssize_t read = 0;
+        char *token = NULL;
+        int found = 0;
+        regex_t regex;
+        regcomp(&regex, "^ wl[0-9a-z]*$", 0);
+        while ((read = getline(&line, &length, file)) != -1 && found == 0) {
+            token = strtok(line, ":");
+            while (token != NULL && found == 0) {
+                if (!regexec(&regex, token, 0, NULL, 0)) {
+                    gint size = strlen(token);
+                    name = malloc(sizeof(token) * size);
+                    g_strlcpy(name, token + 1, size);
+                    found = 1;
+                }
+                token = strtok(NULL, ":");
+            }
+        }
+        fclose(file);
+    }
+    return name;
+}
+
 gboolean set_wifi_signal_strength()
 {
-    int psize = strlen(RASPIMP_WLAN_INTERFACE) + 10;
+    int psize = strlen(wlaninterface) + 10;
     char pformat[psize];
 
-    snprintf(pformat, psize, "iwconfig %s", RASPIMP_WLAN_INTERFACE);
+    snprintf(pformat, psize, "iwconfig %s", wlaninterface);
     FILE *file = popen(pformat, "r");
 
     if (file != NULL) {
@@ -467,38 +499,40 @@ gboolean set_position()
 
 void set_music_database(const gchar *path)
 {
-    GError *error;
+    GError *error = NULL;
     const gchar *filename;
     GDir *dir = g_dir_open(path, 0, &error);
 
-    while ((filename = g_dir_read_name(dir))) {
-        gchar *pformat = "%s/%s";
-        gulong psize = strlen(pformat) + strlen(path) + strlen(filename);
-        gchar npath[psize];
-        g_snprintf(npath, psize, pformat, path, filename);
-        if (g_file_test(npath, G_FILE_TEST_IS_DIR) == TRUE) {
-            set_music_database(npath);
-        } else {
-            if (g_str_has_suffix(filename, ".mp3")) {
-                gchar *uformat = "file://%s";
-                gulong usize = strlen(uformat) + strlen(npath);
-                gchar url[usize];
-                g_snprintf(url, usize, uformat, npath);
+    if (dir != NULL) {
+        while ((filename = g_dir_read_name(dir))) {
+            gchar *pformat = "%s/%s";
+            gulong psize = strlen(pformat) + strlen(path) + strlen(filename);
+            gchar npath[psize];
+            g_snprintf(npath, psize, pformat, path, filename);
+            if (g_file_test(npath, G_FILE_TEST_IS_DIR) == TRUE) {
+                set_music_database(npath);
+            } else {
+                if (g_str_has_suffix(filename, ".mp3")) {
+                    gchar *uformat = "file://%s";
+                    gulong usize = strlen(uformat) + strlen(npath);
+                    gchar url[usize];
+                    g_snprintf(url, usize, uformat, npath);
 
-                sqlite3_stmt *statement;
-                gchar *iformat = "INSERT INTO music(name, url) VALUES(?, ?)";
-                gulong isize = strlen(iformat) + strlen(filename) + strlen(url);
-                gchar iquery[isize];
-                g_snprintf(iquery, isize, iformat, filename, url);
-                sqlite3_prepare_v2(database, iquery, -1, &statement, NULL);
-                sqlite3_bind_text(statement, 1, filename, strlen(filename), SQLITE_STATIC);
-                sqlite3_bind_text(statement, 2, url, strlen(url), SQLITE_STATIC);
-                sqlite3_step(statement);
-                sqlite3_finalize(statement);
+                    sqlite3_stmt *statement;
+                    gchar *iformat = "INSERT INTO music(name, url) VALUES(?, ?)";
+                    gulong isize = strlen(iformat) + strlen(filename) + strlen(url);
+                    gchar iquery[isize];
+                    g_snprintf(iquery, isize, iformat, filename, url);
+                    sqlite3_prepare_v2(database, iquery, -1, &statement, NULL);
+                    sqlite3_bind_text(statement, 1, filename, strlen(filename), SQLITE_STATIC);
+                    sqlite3_bind_text(statement, 2, url, strlen(url), SQLITE_STATIC);
+                    sqlite3_step(statement);
+                    sqlite3_finalize(statement);
+                }
             }
         }
+        g_dir_close(dir);
     }
-    g_dir_close(dir);
 }
 
 void is_file(const char *FILENAME)
@@ -523,15 +557,43 @@ gboolean on_window_key_press_event(GtkWidget *widget, GdkEventKey *event)
     return FALSE;
 }
 
+void initialize_database(const gchar *musicdir)
+{
+#ifdef __arm__
+    char *home = getenv("HOME");
+    int dsize = strlen(home) + strlen(RASPIMP_DB_FILENAME) + 2;
+    char databasefile[dsize];
+    snprintf(databasefile, dsize, "%s/%s", home, RASPIMP_DB_FILENAME);
+#else
+    const char *databasefile = RASPIMP_DB_FILENAME;
+#endif
+
+    if (access(databasefile, R_OK) != 0) {
+        int csize = strlen(databasefile) + strlen(RASPIMP_SQL_FILE) + 12;
+        char command[csize];
+        snprintf(command, csize, "sqlite3 %s < %s", databasefile, RASPIMP_SQL_FILE);
+        system(command);
+    }
+
+    sqlite3_exec(database, "DELETE FROM music", NULL, 0, NULL);
+    sqlite3_open(databasefile, &database);
+    set_music_database(musicdir);
+}
+
 void initialize_gtk()
 {
     gtk_init(NULL, NULL);
 
+    gchar *home = (gchar *)getenv("HOME");
+    gint msize = strlen(home) + strlen(RASPIMP_MUSIC_DIR) + 2;
+    gchar musicdir[msize];
+    g_snprintf(musicdir, msize, "%s/%s", home, RASPIMP_MUSIC_DIR);
+
     is_file(RASPIMP_CSS_FILE);
-    is_file(RASPIMP_SQLITE_FILE);
+    is_file(RASPIMP_SQL_FILE);
     is_file(RASPIMP_GLADE_FILE);
     is_file(KEYBOARD_GLADE_FILE);
-    is_file(RASPIMP_MUSIC_DIR);
+    is_file(musicdir);
 
     GtkBuilder *builder = gtk_builder_new();
     gtk_builder_add_from_file(builder, RASPIMP_GLADE_FILE, NULL);
@@ -564,9 +626,8 @@ void initialize_gtk()
     gtk_image_set_from_file(pauseimage, RASPIMP_PAUSE_IMAGE);
     gtk_image_set_from_file(stopimage, RASPIMP_STOP_IMAGE);
     gtk_image_set_from_file(shutdownimage, RASPIMP_SHUTDOWN_IMAGE);
-    sqlite3_open(RASPIMP_SQLITE_FILE, &database);
-    sqlite3_exec(database, "DELETE FROM music", NULL, 0, NULL);
-    set_music_database(RASPIMP_MUSIC_DIR);
+    wlaninterface = get_wlan_interface(wlaninterface);
+    initialize_database(musicdir);
     set_streams(NULL);
     set_music(NULL);
     signaltimeout = g_timeout_add(5000, set_wifi_signal_strength, NULL);

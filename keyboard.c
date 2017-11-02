@@ -2,7 +2,7 @@
 #include <string.h>
 
 #ifdef __arm__
-const char *KEYBOARD_GLADE_FILE = "/home/alarm/.config/raspimp/keyboard.glade";
+const char *KEYBOARD_GLADE_FILE = "/usr/share/raspimp/keyboard.glade";
 #else
 const char *KEYBOARD_GLADE_FILE = "keyboard.glade";
 #endif

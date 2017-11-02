@@ -15,19 +15,18 @@ run: compile
 	./raspimp
 
 install: compile
-	mkdir -p ~/.config/raspimp
-	mkdir -p ~/music
-	cp raspimp.glade ~/.config/raspimp/raspimp.glade
-	cp raspimp.db ~/.config/raspimp/raspimp.db
-	cp raspimp.css ~/.config/raspimp/raspimp.css
-	cp keyboard.glade ~/.config/raspimp/keyboard.glade
-	cp pause.png ~/.config/raspimp/pause.png
-	cp play.png ~/.config/raspimp/play.png
-	cp stop.png ~/.config/raspimp/stop.png
-	cp shutdown.png ~/.config/raspimp/shutdown.png
-	sudo -v && killall raspimp ; sudo cp raspimp /usr/bin/raspimp
+	mkdir -p /usr/share/raspimp
+	cp raspimp.glade /usr/share/raspimp/raspimp.glade
+	cp raspimp.sql /usr/share/raspimp/raspimp.sql
+	cp raspimp.css /usr/share/raspimp/raspimp.css
+	cp keyboard.glade /usr/share/raspimp/keyboard.glade
+	cp pause.png /usr/share/raspimp/pause.png
+	cp play.png /usr/share/raspimp/play.png
+	cp stop.png /usr/share/raspimp/stop.png
+	cp shutdown.png /usr/share/raspimp/shutdown.png
+	killall raspimp ; cp raspimp /usr/bin/raspimp
 
 uninstall:
-	rm -rf ~/.config/raspimp
-	sudo -v
-	killall raspimp && sudo rm /usr/bin/raspimp
+	rm -rf /usr/share/raspimp
+	rm ~/.raspimp.db
+	killall raspimp ; rm /usr/bin/raspimp
