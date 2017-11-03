@@ -11,7 +11,7 @@ Music Player for Rasperry Pi 2 with Touchscreen.
 | make | compile project |
 | make clean | remove compiled files, logs, temp files |
 | make run | start project |
-| make install | install project to /usr/share/raspimp |
+| make install | install project to /usr/share/raspimp and /usr/bin/raspimp |
 | make uninstall | uninstall project |
 
 ### raspimp.sh
