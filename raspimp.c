@@ -35,6 +35,8 @@ const char *RASPIMP_DB_FILENAME = ".raspimp.db";
 const char *RASPIMP_MUSIC_DIR = "Music/Diverse";
 #endif
 
+const char *WIRELESS_FILE = "/proc/net/wireless";
+
 GtkWidget *window = NULL;
 GtkLabel *statuslabel = NULL;
 GtkLabel *signallabel = NULL;
@@ -407,57 +409,45 @@ char *get_wlan_interface(gchar *name)
 
 gboolean set_wifi_signal_strength()
 {
-    int psize = strlen(wlaninterface) + 10;
-    char pformat[psize];
+    int strength = 0;
 
-    snprintf(pformat, psize, "iwconfig %s", wlaninterface);
-    FILE *file = popen(pformat, "r");
-
-    if (file != NULL) {
-        char *line = NULL;
-        size_t length = 0;
-        ssize_t read;
-        const char *rquality = "Quality=[0-9]*/[0-9]*";
-        regex_t regex;
-        int found = 0;
-        regcomp(&regex, rquality, 0);
-        while ((read = getline(&line, &length, file)) != -1 && found == 0) {
-            regmatch_t matches[1];
-            if (!regexec(&regex, line, 1, matches, 0)) {
-                int size = matches[0].rm_eo - matches[0].rm_so + 1;
-                char cquality[size];
-                strncpy(cquality, line + matches[0].rm_so + 8, size - 8);
-
-                int now = 0;
-                int max = 0;
-
-                char *token = strtok(cquality, "/");
-                if (token != NULL)
-                    now = atoi(token);
-                token = strtok(NULL, "/");
-                if (token != NULL)
-                    max = atoi(token);
-
-                double strength = (double)now / max * 100.0;
-                gchar sstrength[5];
-                g_snprintf(sstrength, 5, "%03.0f%%", strength);
-                gchar *text = NULL;
-                gchar color[7];
-                if (strength > 70)
-                    g_strlcpy(color, "green", 6);
-                else if (strength > 40)
-                    g_strlcpy(color, "yellow", 7);
-                else
-                    g_strlcpy(color, "red", 4);
-                text = g_markup_printf_escaped("<span foreground=\"\%s\">\%s</span>", color, sstrength);
-                gtk_label_set_markup(signallabel, text);
-                g_free(text);
-                found = 1;
-            }
+    if (access(WIRELESS_FILE, F_OK) != -1) {
+        FILE *file = fopen(WIRELESS_FILE, "r");
+        if (file != NULL) {
+            char *line = NULL;
+            size_t size = 0;
+            ssize_t read = 0;
+            regex_t regex;
+            regcomp(&regex, wlaninterface, 0);
+            while ((read = getline(&line, &size, file)) != -1)
+                if (!regexec(&regex, line, 0, NULL, 0)) {
+                    char *token = strtok(line, " ");
+                    int i = 0;
+                    while (token && i < 4) {
+                        if (i == 3)
+                            strength = atol(token);
+                        token = strtok(NULL, " ");
+                        i++;
+                    }
+                }
+            fclose(file);
+            if (strength < 0)
+                strength = 110 + strength;
         }
-        free(line);
-        pclose(file);
     }
+    gchar sstrength[5];
+    g_snprintf(sstrength, 5, "%03i%%", strength);
+    gchar *text = NULL;
+    gchar color[7];
+    if (strength > 70)
+        g_strlcpy(color, "green", 6);
+    else if (strength > 40)
+        g_strlcpy(color, "yellow", 7);
+    else
+        g_strlcpy(color, "red", 4);
+    text = g_markup_printf_escaped("<span foreground=\"\%s\">\%s</span>", color, sstrength);
+    gtk_label_set_markup(signallabel, text);
+    g_free(text);
     return TRUE;
 }
 
