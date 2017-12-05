@@ -490,10 +490,10 @@ gboolean set_position()
 void set_music_database(const gchar *path)
 {
     GError *error = NULL;
-    const gchar *filename;
     GDir *dir = g_dir_open(path, 0, &error);
 
     if (dir != NULL) {
+        gchar *filename;
         while ((filename = g_dir_read_name(dir))) {
             gchar *pformat = "%s/%s";
             gulong psize = strlen(pformat) + strlen(path) + strlen(filename);
