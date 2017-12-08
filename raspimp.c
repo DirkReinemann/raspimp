@@ -493,8 +493,8 @@ void set_music_database(const gchar *path)
     GDir *dir = g_dir_open(path, 0, &error);
 
     if (dir != NULL) {
-        gchar *filename;
-        while ((filename = g_dir_read_name(dir))) {
+        const gchar *filename;
+        while ((filename = g_dir_read_name(dir)) != NULL) {
             gchar *pformat = "%s/%s";
             gulong psize = strlen(pformat) + strlen(path) + strlen(filename);
             gchar npath[psize];
@@ -565,8 +565,8 @@ void initialize_database(const gchar *musicdir)
         system(command);
     }
 
-    sqlite3_exec(database, "DELETE FROM music", NULL, 0, NULL);
     sqlite3_open(databasefile, &database);
+    sqlite3_exec(database, "DELETE FROM music", NULL, 0, NULL);
     set_music_database(musicdir);
 }
 
