@@ -24,8 +24,9 @@ install: compile
 	cp play.png /usr/share/raspimp/play.png
 	cp stop.png /usr/share/raspimp/stop.png
 	cp shutdown.png /usr/share/raspimp/shutdown.png
-	killall raspimp ; cp raspimp /usr/bin/raspimp
+	cp wlan.png /usr/share/raspimp/wlan.png
+	killall raspimp; sleep 1; cp raspimp /usr/bin/raspimp
 
 uninstall:
 	rm -rf /usr/share/raspimp
-	killall raspimp ; rm /usr/bin/raspimp
+	killall raspimp; sleep 1; rm /usr/bin/raspimp

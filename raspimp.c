@@ -20,6 +20,7 @@ const char *RASPIMP_PAUSE_IMAGE = "/usr/share/raspimp/pause.png";
 const char *RASPIMP_PLAY_IMAGE = "/usr/share/raspimp/play.png";
 const char *RASPIMP_STOP_IMAGE = "/usr/share/raspimp/stop.png";
 const char *RASPIMP_SHUTDOWN_IMAGE = "/usr/share/raspimp/shutdown.png";
+const char *RASPIMP_WLAN_IMAGE = "/usr/share/raspimp/wlan.png";
 const char *RASPIMP_SQL_FILE = "/usr/share/raspimp/raspimp.sql";
 const char *RASPIMP_DB_FILENAME = ".raspimp.db";
 const char *RASPIMP_MUSIC_DIR = "Music";
@@ -30,6 +31,7 @@ const char *RASPIMP_PAUSE_IMAGE = "pause.png";
 const char *RASPIMP_PLAY_IMAGE = "play.png";
 const char *RASPIMP_STOP_IMAGE = "stop.png";
 const char *RASPIMP_SHUTDOWN_IMAGE = "shutdown.png";
+const char *RASPIMP_WLAN_IMAGE = "wlan.png";
 const char *RASPIMP_SQL_FILE = "raspimp.sql";
 const char *RASPIMP_DB_FILENAME = ".raspimp.db";
 const char *RASPIMP_MUSIC_DIR = "Music/Diverse";
@@ -56,6 +58,7 @@ GtkNotebook *notebook = NULL;
 GtkImage *pauseimage = NULL;
 GtkImage *stopimage = NULL;
 GtkImage *shutdownimage = NULL;
+GtkImage *wlanimage = NULL;
 
 GMainLoop *loop = NULL;
 GstElement *playbin = NULL;
@@ -615,11 +618,13 @@ void initialize_gtk()
     pauseimage = GTK_IMAGE(gtk_builder_get_object(builder, "pauseimage"));
     stopimage = GTK_IMAGE(gtk_builder_get_object(builder, "stopimage"));
     shutdownimage = GTK_IMAGE(gtk_builder_get_object(builder, "shutdownimage"));
+    wlanimage = GTK_IMAGE(gtk_builder_get_object(builder, "wlanimage"));
 
     g_object_unref(builder);
     gtk_image_set_from_file(pauseimage, RASPIMP_PAUSE_IMAGE);
     gtk_image_set_from_file(stopimage, RASPIMP_STOP_IMAGE);
     gtk_image_set_from_file(shutdownimage, RASPIMP_SHUTDOWN_IMAGE);
+    gtk_image_set_from_file(wlanimage, RASPIMP_WLAN_IMAGE);
     wlaninterface = get_wlan_interface(wlaninterface);
     initialize_database(musicdir);
     set_streams(NULL);
