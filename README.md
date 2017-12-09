@@ -26,5 +26,4 @@ Music Player for Rasperry Pi 2 with Touchscreen.
 The following applications are used and should be installed.
 
   * ip
-  * iwconfig
   * sqlite
