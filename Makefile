@@ -3,7 +3,7 @@ CFLAGS=-g3 -std=c11 -Wall -Wextra -Werror -D_GNU_SOURCE `pkg-config --cflags --l
 SOURCES=raspimp.c keyboard.c
 BIN=raspimp
 INSTALL=/usr/share/raspimp
-FILES=wlan0.png wlan1.png wlan2.png wlan3.png wlan4.png wlan5.png raspimp.glade raspimp.sql raspimp.css keyboard.glade pause.png play.png stop.png shutdown.png
+FILES=wlan0.png wlan1.png wlan2.png wlan3.png wlan4.png wlan5.png raspimp.glade raspimp.sql raspimp.css keyboard.glade pause.png play.png stop.png shutdown.png screen.png
 
 all: compile
 
