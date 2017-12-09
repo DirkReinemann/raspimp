@@ -20,7 +20,7 @@ const char *RASPIMP_PAUSE_IMAGE = "/usr/share/raspimp/pause.png";
 const char *RASPIMP_PLAY_IMAGE = "/usr/share/raspimp/play.png";
 const char *RASPIMP_STOP_IMAGE = "/usr/share/raspimp/stop.png";
 const char *RASPIMP_SHUTDOWN_IMAGE = "/usr/share/raspimp/shutdown.png";
-const char *RASPIMP_WLAN_IMAGE = "/usr/share/raspimp/wlan.png";
+const char *RASPIMP_WLAN_IMAGE_FORMAT = "/usr/share/raspimp/wlan%i.png";
 const char *RASPIMP_SQL_FILE = "/usr/share/raspimp/raspimp.sql";
 const char *RASPIMP_DB_FILENAME = ".raspimp.db";
 const char *RASPIMP_MUSIC_DIR = "Music";
@@ -31,7 +31,7 @@ const char *RASPIMP_PAUSE_IMAGE = "pause.png";
 const char *RASPIMP_PLAY_IMAGE = "play.png";
 const char *RASPIMP_STOP_IMAGE = "stop.png";
 const char *RASPIMP_SHUTDOWN_IMAGE = "shutdown.png";
-const char *RASPIMP_WLAN_IMAGE = "wlan.png";
+const char *RASPIMP_WLAN_IMAGE_FORMAT = "wlan%i.png";
 const char *RASPIMP_SQL_FILE = "raspimp.sql";
 const char *RASPIMP_DB_FILENAME = ".raspimp.db";
 const char *RASPIMP_MUSIC_DIR = "Music/Diverse";
@@ -41,7 +41,6 @@ const char *WIRELESS_FILE = "/proc/net/wireless";
 
 GtkWidget *window = NULL;
 GtkLabel *statuslabel = NULL;
-GtkLabel *signallabel = NULL;
 GtkLabel *positionlabel = NULL;
 GtkButton *stopbutton = NULL;
 GtkButton *pausebutton = NULL;
@@ -438,19 +437,22 @@ gboolean set_wifi_signal_strength()
                 strength = 110 + strength;
         }
     }
-    gchar sstrength[5];
-    g_snprintf(sstrength, 5, "%03i%%", strength);
-    gchar *text = NULL;
-    gchar color[7];
-    if (strength > 70)
-        g_strlcpy(color, "green", 6);
-    else if (strength > 40)
-        g_strlcpy(color, "yellow", 7);
-    else
-        g_strlcpy(color, "red", 4);
-    text = g_markup_printf_escaped("<span foreground=\"\%s\">\%s</span>", color, sstrength);
-    gtk_label_set_markup(signallabel, text);
-    g_free(text);
+    int image = 0;
+    if (strength > 90)
+        image = 5;
+    else if (strength > 70)
+        image = 4;
+    else if (strength > 50)
+        image = 3;
+    else if (strength > 30)
+        image = 2;
+    else if (strength > 10)
+        image = 1;
+
+    ssize_t size = strlen(RASPIMP_WLAN_IMAGE_FORMAT);
+    gchar imagename[size];
+    g_snprintf(imagename, size, RASPIMP_WLAN_IMAGE_FORMAT, image);
+    gtk_image_set_from_file(wlanimage, imagename);
     return TRUE;
 }
 
@@ -602,7 +604,6 @@ void initialize_gtk()
 
     window = GTK_WIDGET(gtk_builder_get_object(builder, "window"));
     statuslabel = GTK_LABEL(gtk_builder_get_object(builder, "statuslabel"));
-    signallabel = GTK_LABEL(gtk_builder_get_object(builder, "signallabel"));
     positionlabel = GTK_LABEL(gtk_builder_get_object(builder, "positionlabel"));
     stopbutton = GTK_BUTTON(gtk_builder_get_object(builder, "stopbutton"));
     pausebutton = GTK_BUTTON(gtk_builder_get_object(builder, "pausebutton"));
@@ -624,7 +625,10 @@ void initialize_gtk()
     gtk_image_set_from_file(pauseimage, RASPIMP_PAUSE_IMAGE);
     gtk_image_set_from_file(stopimage, RASPIMP_STOP_IMAGE);
     gtk_image_set_from_file(shutdownimage, RASPIMP_SHUTDOWN_IMAGE);
-    gtk_image_set_from_file(wlanimage, RASPIMP_WLAN_IMAGE);
+
+    gchar imagename[strlen(RASPIMP_WLAN_IMAGE_FORMAT)];
+    g_snprintf(imagename, strlen(RASPIMP_WLAN_IMAGE_FORMAT), RASPIMP_WLAN_IMAGE_FORMAT, 0);
+    gtk_image_set_from_file(wlanimage, imagename);
     wlaninterface = get_wlan_interface(wlaninterface);
     initialize_database(musicdir);
     set_streams(NULL);
